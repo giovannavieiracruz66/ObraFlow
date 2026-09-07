@@ -15,7 +15,8 @@ const Pages = {
   'almoxarifado-dashboard': renderAlmoxDashboard,
   'almoxarifado-previsao': renderAlmoxPrevisao,
   'almoxarifado-recebimento': renderAlmoxRecebimento,
-  'almoxarifado-historico': renderAlmoxHistorico
+  'almoxarifado-historico': renderAlmoxHistorico,
+  usuarios: renderUsuarios
 };
 
 // Guarda de rota: perfis com acesso restrito só podem ver as páginas listadas.
@@ -26,12 +27,19 @@ const ROLE_PAGES = {
   portaria: ['almoxarifado-dashboard', 'almoxarifado-previsao', 'almoxarifado-recebimento', 'almoxarifado-historico']
 };
 
+// Páginas restritas ao Administrador mesmo dentro de perfis "acesso completo"
+const ADMIN_ONLY_PAGES = ['usuarios'];
+
 function navigate(page) {
   const role = Store.getRole();
   const allowed = ROLE_PAGES[role];
   if (allowed && !allowed.includes(page)) {
     Toast.warning('Acesso restrito', 'Seu perfil não tem permissão para acessar esta tela.');
     page = allowed[0];
+  }
+  if (ADMIN_ONLY_PAGES.includes(page) && role !== 'admin') {
+    Toast.warning('Acesso restrito', 'Somente o Administrador pode acessar esta tela.');
+    page = allowed ? allowed[0] : 'dashboard';
   }
 
   // Update sidebar active state

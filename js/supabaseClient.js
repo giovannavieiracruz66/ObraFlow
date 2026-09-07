@@ -12,6 +12,31 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // Guardamos o cliente em `sb` pra não sobrescrever esse global.
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// Chama uma Edge Function do projeto (ex.: "manage-users"), anexando o
+// token da sessão atual — a função decide, no servidor, se essa pessoa
+// tem permissão pra fazer o que está pedindo.
+async function callFunction(name, payload) {
+  const { data: sessionData } = await sb.auth.getSession();
+  const token = sessionData.session?.access_token;
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'apikey': SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify(payload)
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) return { error: body.error || 'Erro na requisição.' };
+    return body;
+  } catch (e) {
+    return { error: 'Não foi possível conectar ao servidor.' };
+  }
+}
+
 function makeUUID() {
   if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
   // Fallback simples (navegadores antigos / contexto não seguro)
