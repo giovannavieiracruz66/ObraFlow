@@ -1,0 +1,315 @@
+// ==========================================
+// MEDIÇÕES PAGE
+// ==========================================
+
+let medicFilter = { status: '', projectId: '', search: '', page: 1 };
+
+function renderMedicoes() {
+  const measurements = Store.getList('measurements');
+  const projects = Store.getList('projects');
+  const getProjectName = id => projects.find(p => p.id === id)?.name || '—';
+
+  const content = document.getElementById('page-content');
+  content.innerHTML = `
+    <div class="page-header">
+      <div class="page-header-left">
+        <h1>Medições</h1>
+        <p>${measurements.length} medições cadastradas</p>
+      </div>
+      <div class="page-header-actions">
+        <button class="btn btn-primary" onclick="openNewMeasurementModal()">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nova Medição
+        </button>
+      </div>
+    </div>
+
+    <!-- STATUS SUMMARY -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;">
+      ${[
+        ['Em Elaboração', measurements.filter(m=>m.status==='em_elaboracao').length, 'gray'],
+        ['Aguardando Aprovação', measurements.filter(m=>['aguardando_aprovacao','enviada'].includes(m.status)).length, 'orange'],
+        ['Aprovadas', measurements.filter(m=>m.status==='aprovada').length, 'cyan'],
+        ['Pagas', measurements.filter(m=>m.status==='paga').length, 'green'],
+      ].map(([l, v, c]) => `
+        <div class="kpi-card ${c}">
+          <div class="kpi-value">${v}</div>
+          <div class="kpi-label">${l}</div>
+        </div>
+      `).join('')}
+    </div>
+
+    <!-- FILTERS -->
+    <div class="filters-bar">
+      <div class="search-wrapper">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="search-input" type="text" placeholder="Buscar medição..." value="${medicFilter.search}" oninput="medicFilter.search=this.value;medicFilter.page=1;renderMedicContent()">
+      </div>
+      <select class="filter-select" onchange="medicFilter.projectId=this.value;medicFilter.page=1;renderMedicContent()">
+        <option value="">Todas as obras</option>
+        ${projects.map(p => `<option value="${p.id}" ${medicFilter.projectId===p.id?'selected':''}>${p.name}</option>`).join('')}
+      </select>
+      <select class="filter-select" onchange="medicFilter.status=this.value;medicFilter.page=1;renderMedicContent()">
+        <option value="">Todos os status</option>
+        ${Object.entries(StatusHelpers.measurement.labels).map(([v,l]) => `<option value="${v}" ${medicFilter.status===v?'selected':''}>${l}</option>`).join('')}
+      </select>
+      <button class="btn btn-sm btn-ghost" onclick="medicFilter={status:'',projectId:'',search:'',page:1};renderMedicContent()">Limpar</button>
+    </div>
+
+    <!-- TABLE -->
+    <div class="card">
+      <div class="table-wrapper">
+        <table id="medic-table">
+          <thead>
+            <tr><th>#</th><th>OBRA</th><th>PERÍODO</th><th>VALOR</th><th>APROVADO</th><th>VENCIMENTO</th><th>PAGO EM</th><th>STATUS</th><th></th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="medic-pag"></div>
+    </div>
+  `;
+
+  renderMedicContent();
+}
+
+function renderMedicContent() {
+  const measurements = Store.getList('measurements');
+  const projects = Store.getList('projects');
+  const getProjectName = id => projects.find(p => p.id === id)?.name || '—';
+
+  let filtered = measurements.filter(m => {
+    const proj = getProjectName(m.projectId);
+    const matchSearch = !medicFilter.search || proj.toLowerCase().includes(medicFilter.search.toLowerCase()) || m.period?.toLowerCase().includes(medicFilter.search.toLowerCase());
+    const matchProject = !medicFilter.projectId || m.projectId === medicFilter.projectId;
+    const matchStatus = !medicFilter.status || m.status === medicFilter.status;
+    return matchSearch && matchProject && matchStatus;
+  });
+
+  paginate({
+    items: filtered,
+    page: medicFilter.page || 1,
+    perPage: 10,
+    containerId: 'medic',
+    tableId: 'medic-table',
+    renderRow: m => `
+      <tr>
+        <td class="td-main">Med. ${m.number}</td>
+        <td>
+          <div style="font-weight:600;color:var(--text);">${getProjectName(m.projectId)}</div>
+          <div style="font-size:11px;color:var(--text-faint);">${m.period}</div>
+        </td>
+        <td>${m.period}</td>
+        <td class="font-semibold">${fmt.currency(m.value)}</td>
+        <td>${m.approvedValue ? fmt.currency(m.approvedValue) : '—'}</td>
+        <td>${fmt.date(m.paymentDue)}</td>
+        <td>${fmt.date(m.paidAt)}</td>
+        <td>${badge('measurement', m.status)}</td>
+        <td>
+          <div style="display:flex;gap:4px;">
+            <button class="btn btn-sm btn-ghost" onclick="openEditMeasurementModal('${m.id}')">
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            </button>
+            <button class="btn btn-sm btn-ghost" style="color:var(--danger);" onclick="deleteMeasurement('${m.id}')">
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `
+  });
+}
+
+function openNewMeasurementModal(preProjectId = '') {
+  const projects = Store.getList('projects');
+
+  const { close } = Modal.create({
+    title: 'Nova Medição',
+    size: 'modal-lg',
+    body: `
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Obra *</label>
+          <select class="form-control" id="med-project">
+            <option value="">Selecionar obra</option>
+            ${projects.map(p => `<option value="${p.id}" ${p.id===preProjectId?'selected':''}>${p.name}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Período</label>
+          <input class="form-control" id="med-period" placeholder="Ex: Jan/2025">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Data da Medição</label>
+          <input class="form-control" id="med-date" type="date" value="${new Date().toISOString().split('T')[0]}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select class="form-control" id="med-status">
+            ${Object.entries(StatusHelpers.measurement.labels).map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Valor da Medição (R$)</label>
+          <input class="form-control" id="med-value" type="number" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Valor Aprovado (R$)</label>
+          <input class="form-control" id="med-approved" type="number" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">% Executado nesta Med.</label>
+          <input class="form-control" id="med-pct" type="number" min="0" max="100" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Vencimento do Pagamento</label>
+          <input class="form-control" id="med-due" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Data de Envio</label>
+          <input class="form-control" id="med-sent" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Data de Aprovação</label>
+          <input class="form-control" id="med-apprdate" type="date">
+        </div>
+        <div class="form-group form-col-span-2">
+          <label class="form-label">Descrição dos Serviços Realizados</label>
+          <textarea class="form-control" id="med-desc" rows="3" placeholder="Descreva os serviços medidos..."></textarea>
+        </div>
+        <div class="form-group form-col-span-2">
+          <label class="form-label">Observações</label>
+          <textarea class="form-control" id="med-notes" rows="2"></textarea>
+        </div>
+      </div>
+    `,
+    footer: `
+      <button class="btn btn-outline" id="modal-cancel">Cancelar</button>
+      <button class="btn btn-primary" id="modal-save">Salvar Medição</button>
+    `
+  });
+
+  setTimeout(() => {
+    document.getElementById('modal-cancel')?.addEventListener('click', close);
+    document.getElementById('modal-save')?.addEventListener('click', () => {
+      const projectId = document.getElementById('med-project').value;
+      if (!projectId) { Toast.error('Campo obrigatório', 'Selecione a obra.'); return; }
+      const existingMeds = Store.getList('measurements').filter(m => m.projectId === projectId);
+      Store.add('measurements', {
+        number: existingMeds.length + 1,
+        projectId,
+        period: document.getElementById('med-period').value,
+        date: document.getElementById('med-date').value,
+        status: document.getElementById('med-status').value,
+        value: parseFloat(document.getElementById('med-value').value) || 0,
+        approvedValue: parseFloat(document.getElementById('med-approved').value) || null,
+        percentage: parseFloat(document.getElementById('med-pct').value) || 0,
+        paymentDue: document.getElementById('med-due').value || null,
+        sentAt: document.getElementById('med-sent').value || null,
+        approvedAt: document.getElementById('med-apprdate').value || null,
+        paidAt: null,
+        description: document.getElementById('med-desc').value,
+        notes: document.getElementById('med-notes').value
+      });
+      close();
+      Toast.success('Medição cadastrada!');
+      renderMedicoes();
+    });
+  }, 50);
+}
+
+function openEditMeasurementModal(id) {
+  const m = Store.getById('measurements', id);
+  if (!m) return;
+
+  const { close } = Modal.create({
+    title: `Editar Medição #${m.number}`,
+    size: 'modal-lg',
+    body: `
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Período</label>
+          <input class="form-control" id="emed-period" value="${m.period||''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select class="form-control" id="emed-status">
+            ${Object.entries(StatusHelpers.measurement.labels).map(([v,l]) => `<option value="${v}" ${m.status===v?'selected':''}>${l}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Valor (R$)</label>
+          <input class="form-control" id="emed-value" type="number" value="${m.value}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Valor Aprovado (R$)</label>
+          <input class="form-control" id="emed-approved" type="number" value="${m.approvedValue||''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">% Executado</label>
+          <input class="form-control" id="emed-pct" type="number" value="${m.percentage}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Vencimento</label>
+          <input class="form-control" id="emed-due" type="date" value="${m.paymentDue||''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Data de Aprovação</label>
+          <input class="form-control" id="emed-apprdate" type="date" value="${m.approvedAt||''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Data do Pagamento</label>
+          <input class="form-control" id="emed-paid" type="date" value="${m.paidAt||''}">
+        </div>
+        <div class="form-group form-col-span-2">
+          <label class="form-label">Descrição</label>
+          <textarea class="form-control" id="emed-desc" rows="3">${m.description||''}</textarea>
+        </div>
+        <div class="form-group form-col-span-2">
+          <label class="form-label">Observações</label>
+          <textarea class="form-control" id="emed-notes" rows="2">${m.notes||''}</textarea>
+        </div>
+      </div>
+    `,
+    footer: `
+      <button class="btn btn-outline" id="modal-cancel">Cancelar</button>
+      <button class="btn btn-primary" id="modal-save">Salvar</button>
+    `
+  });
+
+  setTimeout(() => {
+    document.getElementById('modal-cancel')?.addEventListener('click', close);
+    document.getElementById('modal-save')?.addEventListener('click', () => {
+      Store.update('measurements', id, {
+        period: document.getElementById('emed-period').value,
+        status: document.getElementById('emed-status').value,
+        value: parseFloat(document.getElementById('emed-value').value) || 0,
+        approvedValue: parseFloat(document.getElementById('emed-approved').value) || null,
+        percentage: parseFloat(document.getElementById('emed-pct').value) || 0,
+        paymentDue: document.getElementById('emed-due').value || null,
+        approvedAt: document.getElementById('emed-apprdate').value || null,
+        paidAt: document.getElementById('emed-paid').value || null,
+        description: document.getElementById('emed-desc').value,
+        notes: document.getElementById('emed-notes').value
+      });
+      close();
+      Toast.success('Medição atualizada!');
+      renderMedicoes();
+    });
+  }, 50);
+}
+
+function deleteMeasurement(id) {
+  const m = Store.getById('measurements', id);
+  confirmDialog({
+    title: 'Excluir Medição',
+    message: `Excluir Medição #${m?.number}?`,
+    confirmText: 'Excluir',
+    type: 'danger',
+    onConfirm: () => {
+      Store.remove('measurements', id);
+      Toast.success('Medição excluída!');
+      renderMedicoes();
+    }
+  });
+}
