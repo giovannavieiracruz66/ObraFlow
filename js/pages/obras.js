@@ -481,9 +481,9 @@ function showProjectTab(tab, projectId) {
                   </td>
                   <td>${o.supplier || '—'}</td>
                   <td>${fmt.date(o.expectedDate)}</td>
-                  <td>${o.quantity} ${o.unit}</td>
-                  <td style="font-weight:600;color:var(--primary-700);">${o.delivered} ${o.unit}</td>
-                  <td style="font-weight:700;color:${saldo > 0 ? 'var(--danger)' : 'var(--text-faint)'};">${saldo} ${o.unit}</td>
+                  <td>${fmt.number(o.quantity)} ${o.unit}</td>
+                  <td style="font-weight:600;color:var(--primary-700);">${fmt.number(o.delivered)} ${o.unit}</td>
+                  <td style="font-weight:700;color:${saldo > 0 ? 'var(--danger)' : 'var(--text-faint)'};">${fmt.number(saldo)} ${o.unit}</td>
                   <td class="font-semibold">${fmt.currency(o.quantity * o.unitValue)}</td>
                   <td>${badge('order', status)}</td>
                   <td>

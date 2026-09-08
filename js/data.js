@@ -585,7 +585,7 @@ const MONTHLY_REVENUE = [
 
 // Formatadores
 const fmt = {
-  currency: (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v || 0),
+  currency: (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0),
   currencyFull: (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0),
   date: (d) => {
     if (!d) return '—';

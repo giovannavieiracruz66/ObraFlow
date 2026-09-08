@@ -55,7 +55,7 @@ function renderAlmoxDashboard() {
                   <td class="td-main">${projectName(o.projectId)}</td>
                   <td>${o.item}</td>
                   <td style="color:var(--danger);font-weight:600;">${fmt.date(o.expectedDate)}</td>
-                  <td>${o.quantity - o.delivered} ${o.unit}</td>
+                  <td>${fmt.number(o.quantity - o.delivered)} ${o.unit}</td>
                 </tr>
               `).join('') : '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhuma entrega atrasada</td></tr>'}
             </tbody>
@@ -77,7 +77,7 @@ function renderAlmoxDashboard() {
                   <td>${fmt.dateShort(r.receivedAt)}</td>
                   <td class="td-main">${projectName(r.projectId)}</td>
                   <td>${r.item}</td>
-                  <td class="font-semibold">${r.quantity}</td>
+                  <td class="font-semibold">${fmt.number(r.quantity)}</td>
                   <td>${r.invoiceNumber || '—'}</td>
                 </tr>
               `).join('') : '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhum recebimento registrado</td></tr>'}
@@ -156,7 +156,7 @@ function renderAlmoxPrevisaoContent() {
                 </td>
                 <td>${o.supplier || '—'}</td>
                 <td>${fmt.date(o.expectedDate)}</td>
-                <td style="font-weight:700;">${o.quantity - o.delivered} ${o.unit}</td>
+                <td style="font-weight:700;">${fmt.number(o.quantity - o.delivered)} ${o.unit}</td>
                 <td>${badge('order', getOrderStatus(o))}</td>
                 <td><button class="btn btn-sm btn-outline" onclick="navigate('almoxarifado-recebimento')">Ir para Recebimento</button></td>
               </tr>
@@ -238,7 +238,7 @@ function renderAlmoxRecebimentoContent() {
                 </td>
                 <td>${o.supplier || '—'}</td>
                 <td>${fmt.date(o.expectedDate)}</td>
-                <td style="font-weight:700;">${o.quantity - o.delivered} ${o.unit}</td>
+                <td style="font-weight:700;">${fmt.number(o.quantity - o.delivered)} ${o.unit}</td>
                 <td>${badge('order', getOrderStatus(o))}</td>
                 <td>${canWrite() ? `<button class="btn btn-sm btn-primary" onclick="openReceiveMaterialModal('${o.id}', renderAlmoxRecebimentoContent)">Receber</button>` : ''}</td>
               </tr>
@@ -264,7 +264,7 @@ function openReceiveMaterialModal(orderId, onDone) {
         <strong>Obra:</strong> ${projectName(order.projectId)}<br/>
         <strong>Item:</strong> ${order.item} ${order.sku ? `(${order.sku})` : ''}<br/>
         <strong>Fornecedor:</strong> ${order.supplier || '—'}<br/>
-        <strong>Saldo a receber:</strong> ${saldo} ${order.unit}
+        <strong>Saldo a receber:</strong> ${fmt.number(saldo)} ${order.unit}
       </p>
       <div class="form-grid">
         <div class="form-group">
@@ -319,7 +319,7 @@ function openReceiveMaterialModal(orderId, onDone) {
 
       close();
       const statusLabel = receipt.balanceAfter <= 0 ? 'Concluído' : 'Parcial';
-      Toast.success('Recebimento registrado!', `Novo status: ${statusLabel}. Saldo restante: ${receipt.balanceAfter} ${order.unit}.`);
+      Toast.success('Recebimento registrado!', `Novo status: ${statusLabel}. Saldo restante: ${fmt.number(receipt.balanceAfter)} ${order.unit}.`);
       if (typeof onDone === 'function') onDone();
     });
   }, 50);
@@ -388,10 +388,10 @@ function renderAlmoxHistoricoContent() {
                 <td>${fmt.date(r.receivedAt)}</td>
                 <td class="td-main">${projectName(r.projectId)}</td>
                 <td>${r.item}${r.photoName ? ' <span title="Possui foto anexada">📎</span>' : ''}</td>
-                <td class="font-semibold">${r.quantity}</td>
+                <td class="font-semibold">${fmt.number(r.quantity)}</td>
                 <td>${r.invoiceNumber || '—'}</td>
                 <td>${r.receivedBy}</td>
-                <td style="font-weight:700;color:${r.balanceAfter > 0 ? 'var(--warning-dark)' : 'var(--success-dark)'};">${r.balanceAfter}</td>
+                <td style="font-weight:700;color:${r.balanceAfter > 0 ? 'var(--warning-dark)' : 'var(--success-dark)'};">${fmt.number(r.balanceAfter)}</td>
               </tr>
             `).join('')}
           </tbody>
