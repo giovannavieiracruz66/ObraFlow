@@ -92,11 +92,23 @@ const Store = (() => {
   }
 
   // === PERFIL DE ACESSO (vem do login real via Supabase Auth) ===
-  const ROLE_LABELS = { admin: 'Administrador', gestor: 'Gestor de Obras', portaria: 'Portaria' };
+  const ROLE_LABELS = {
+    admin: 'Administrador',
+    gestor: 'Gestor de Obras',
+    portaria: 'Portaria',
+    diretoria: 'Diretoria',
+    gestor_contratos: 'Gestor de Contratos',
+    gestor_orcamentos: 'Gestor de Orçamentos',
+    financeiro: 'Financeiro'
+  };
 
   function getRole() {
     const p = typeof Auth !== 'undefined' ? Auth.getProfile() : null;
     return (p && p.role) || 'gestor';
+  }
+
+  function getRoleLabels() {
+    return ROLE_LABELS;
   }
 
   function getRoleMeta() {
@@ -290,7 +302,7 @@ const Store = (() => {
     getList, getById, add, update, remove,
     getMetrics, getProjectFinancials, getClientStats,
     resetToDemo,
-    getRole, getRoleMeta, getCurrentUserLabel,
+    getRole, getRoleMeta, getRoleLabels, getCurrentUserLabel,
     registerReceipt, getAlmoxMetrics
   };
 })();

@@ -12,7 +12,7 @@ create extension if not exists "pgcrypto";
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   name text not null default 'Usuário',
-  role text not null default 'gestor' check (role in ('admin','gestor','portaria')),
+  role text not null default 'gestor' check (role in ('admin','gestor','portaria','diretoria','gestor_contratos','gestor_orcamentos','financeiro')),
   avatar text,
   color text default '#0ea5e9',
   created_at timestamptz default now()
@@ -216,43 +216,59 @@ alter table public.orders enable row level security;
 alter table public.order_receipts enable row level security;
 alter table public.notifications enable row level security;
 
-create policy "clients_admin_gestor" on public.clients for all
-  using (public.current_role() in ('admin','gestor'))
-  with check (public.current_role() in ('admin','gestor'));
+-- CLIENTS: admin/gestor/gestor_contratos/gestor_orcamentos escrevem; diretoria só lê.
+create policy "clients_write" on public.clients for all
+  using (public.current_role() in ('admin','gestor','gestor_contratos','gestor_orcamentos'))
+  with check (public.current_role() in ('admin','gestor','gestor_contratos','gestor_orcamentos'));
+create policy "clients_read_only" on public.clients for select
+  using (public.current_role() in ('diretoria'));
 
-create policy "projects_admin_gestor" on public.projects for all
-  using (public.current_role() in ('admin','gestor'))
-  with check (public.current_role() in ('admin','gestor'));
-create policy "projects_portaria_read" on public.projects for select
-  using (public.current_role() = 'portaria');
+-- PROJECTS: admin/gestor/gestor_contratos/gestor_orcamentos escrevem; portaria, diretoria e financeiro só leem.
+create policy "projects_write" on public.projects for all
+  using (public.current_role() in ('admin','gestor','gestor_contratos','gestor_orcamentos'))
+  with check (public.current_role() in ('admin','gestor','gestor_contratos','gestor_orcamentos'));
+create policy "projects_read_only" on public.projects for select
+  using (public.current_role() in ('portaria','diretoria','financeiro'));
 
-create policy "measurements_admin_gestor" on public.measurements for all
-  using (public.current_role() in ('admin','gestor'))
-  with check (public.current_role() in ('admin','gestor'));
+-- MEASUREMENTS: admin/gestor/gestor_contratos/financeiro escrevem; diretoria só lê.
+create policy "measurements_write" on public.measurements for all
+  using (public.current_role() in ('admin','gestor','gestor_contratos','financeiro'))
+  with check (public.current_role() in ('admin','gestor','gestor_contratos','financeiro'));
+create policy "measurements_read_only" on public.measurements for select
+  using (public.current_role() in ('diretoria'));
 
-create policy "budgets_admin_gestor" on public.budgets for all
-  using (public.current_role() in ('admin','gestor'))
-  with check (public.current_role() in ('admin','gestor'));
+-- BUDGETS: admin/gestor/gestor_orcamentos escrevem; diretoria e financeiro só leem.
+create policy "budgets_write" on public.budgets for all
+  using (public.current_role() in ('admin','gestor','gestor_orcamentos'))
+  with check (public.current_role() in ('admin','gestor','gestor_orcamentos'));
+create policy "budgets_read_only" on public.budgets for select
+  using (public.current_role() in ('diretoria','financeiro'));
 
-create policy "financial_admin_gestor" on public.financial for all
-  using (public.current_role() in ('admin','gestor'))
-  with check (public.current_role() in ('admin','gestor'));
+-- FINANCIAL: admin/gestor/financeiro escrevem; diretoria só lê.
+create policy "financial_write" on public.financial for all
+  using (public.current_role() in ('admin','gestor','financeiro'))
+  with check (public.current_role() in ('admin','gestor','financeiro'));
+create policy "financial_read_only" on public.financial for select
+  using (public.current_role() in ('diretoria'));
 
-create policy "orders_admin_gestor" on public.orders for all
-  using (public.current_role() in ('admin','gestor'))
-  with check (public.current_role() in ('admin','gestor'));
-create policy "orders_portaria_read" on public.orders for select
-  using (public.current_role() = 'portaria');
+-- ORDERS: admin/gestor/gestor_contratos escrevem; portaria e diretoria só leem.
+create policy "orders_write" on public.orders for all
+  using (public.current_role() in ('admin','gestor','gestor_contratos'))
+  with check (public.current_role() in ('admin','gestor','gestor_contratos'));
+create policy "orders_read_only" on public.orders for select
+  using (public.current_role() in ('portaria','diretoria'));
 
-create policy "receipts_admin_gestor" on public.order_receipts for all
-  using (public.current_role() in ('admin','gestor'))
-  with check (public.current_role() in ('admin','gestor'));
-create policy "receipts_portaria_read" on public.order_receipts for select
-  using (public.current_role() = 'portaria');
+-- ORDER_RECEIPTS: admin/gestor/gestor_contratos escrevem (via register_receipt); portaria e diretoria só leem.
+create policy "receipts_write" on public.order_receipts for all
+  using (public.current_role() in ('admin','gestor','gestor_contratos'))
+  with check (public.current_role() in ('admin','gestor','gestor_contratos'));
+create policy "receipts_read_only" on public.order_receipts for select
+  using (public.current_role() in ('portaria','diretoria'));
 
-create policy "notifications_admin_gestor" on public.notifications for all
-  using (public.current_role() in ('admin','gestor'))
-  with check (public.current_role() in ('admin','gestor'));
+-- NOTIFICATIONS: todo mundo que tem a tela no menu pode ler/marcar como lida.
+create policy "notifications_all_roles" on public.notifications for all
+  using (public.current_role() in ('admin','gestor','diretoria','gestor_contratos','gestor_orcamentos','financeiro'))
+  with check (public.current_role() in ('admin','gestor','diretoria','gestor_contratos','gestor_orcamentos','financeiro'));
 
 -- Grants padrão do Supabase (RLS acima é quem realmente restringe as linhas)
 grant usage on schema public to authenticated;
@@ -281,8 +297,8 @@ declare
   v_receipt public.order_receipts;
   v_user_name text;
 begin
-  if public.current_role() is null then
-    raise exception 'Usuário sem perfil válido';
+  if public.current_role() not in ('admin','gestor','gestor_contratos','portaria') then
+    raise exception 'Perfil sem permissão para registrar recebimentos';
   end if;
 
   select * into v_order from public.orders where id = p_order_id for update;

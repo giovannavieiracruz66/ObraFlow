@@ -25,10 +25,11 @@ function renderAlmoxDashboard() {
         <p>Visão geral de pedidos, entregas e recebimentos de materiais</p>
       </div>
       <div class="page-header-actions">
+        ${canWrite() ? `
         <button class="btn btn-primary" onclick="navigate('almoxarifado-recebimento')">
           <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 12v7a1 1 0 01-1 1H5a1 1 0 01-1-1v-7M16 6l-4-4-4 4M12 2v13"/></svg>
           Registrar Recebimento
-        </button>
+        </button>` : ''}
       </div>
     </div>
 
@@ -239,7 +240,7 @@ function renderAlmoxRecebimentoContent() {
                 <td>${fmt.date(o.expectedDate)}</td>
                 <td style="font-weight:700;">${o.quantity - o.delivered} ${o.unit}</td>
                 <td>${badge('order', getOrderStatus(o))}</td>
-                <td><button class="btn btn-sm btn-primary" onclick="openReceiveMaterialModal('${o.id}', renderAlmoxRecebimentoContent)">Receber</button></td>
+                <td>${canWrite() ? `<button class="btn btn-sm btn-primary" onclick="openReceiveMaterialModal('${o.id}', renderAlmoxRecebimentoContent)">Receber</button>` : ''}</td>
               </tr>
             `).join('')}
           </tbody>

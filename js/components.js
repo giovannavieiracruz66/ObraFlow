@@ -167,6 +167,13 @@ function badge(entity, status) {
   return `<span class="badge ${h.badges[status] || 'badge-gray'}">${h.labels[status] || status}</span>`;
 }
 
+// Perfis "view-only" (hoje só Diretoria) não criam/editam registros —
+// usado pra esconder os botões de criação nas telas principais. A trava
+// de verdade fica no banco (RLS); isso aqui é só a camada de UX.
+function canWrite() {
+  return Store.getRole() !== 'diretoria';
+}
+
 // === ESTRUTURA DE MEDIÇÃO ===
 // Mão de obra + material -> (A) Bruto -> (B) Desconto -> Subtotal ->
 // (C) Caução/Permuta -> (D) Impostos (INSS+ISS) -> Total Líquido.

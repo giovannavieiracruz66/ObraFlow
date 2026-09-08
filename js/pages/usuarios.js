@@ -5,8 +5,6 @@
 // diretamente pelo navegador.
 // ==========================================
 
-const ROLE_LABELS_UI = { admin: 'Administrador', gestor: 'Gestor de Obras', portaria: 'Portaria' };
-
 function generateTempPassword() {
   const part = () => Math.random().toString(36).slice(-4);
   return `${part()}${part()}#${Math.floor(Math.random() * 90 + 10)}`;
@@ -71,7 +69,7 @@ async function renderUsuariosContent() {
                 <td>${u.email || '—'}</td>
                 <td>
                   <select class="filter-select" style="height:32px;" onchange="changeUserRole('${u.id}', this.value)" ${u.id === currentId ? 'disabled' : ''}>
-                    ${Object.entries(ROLE_LABELS_UI).map(([v, l]) => `<option value="${v}" ${u.role === v ? 'selected' : ''}>${l}</option>`).join('')}
+                    ${Object.entries(Store.getRoleLabels()).map(([v, l]) => `<option value="${v}" ${u.role === v ? 'selected' : ''}>${l}</option>`).join('')}
                   </select>
                 </td>
                 <td>${fmt.date(u.created_at)}</td>
@@ -112,7 +110,7 @@ function openNewUserModal() {
         <div class="form-group">
           <label class="form-label">Perfil de Acesso *</label>
           <select class="form-control" id="nu-role">
-            ${Object.entries(ROLE_LABELS_UI).map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}
+            ${Object.entries(Store.getRoleLabels()).map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}
           </select>
         </div>
         <div class="form-group">

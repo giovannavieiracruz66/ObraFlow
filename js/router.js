@@ -24,7 +24,15 @@ const Pages = {
 const ROLE_PAGES = {
   admin: null,
   gestor: null,
-  portaria: ['almoxarifado-dashboard', 'almoxarifado-previsao', 'almoxarifado-recebimento', 'almoxarifado-historico']
+  portaria: ['almoxarifado-dashboard', 'almoxarifado-previsao', 'almoxarifado-recebimento', 'almoxarifado-historico'],
+  // Diretoria: visão executiva de tudo, exceto Almoxarifado (operacional) e Gerenciar Usuários.
+  diretoria: ['dashboard', 'obras', 'medicoes', 'orcamentos', 'financeiro', 'clientes', 'cronograma', 'relatorios', 'notificacoes'],
+  // Gestor de Contratos: execução da obra + almoxarifado.
+  gestor_contratos: ['dashboard', 'obras', 'medicoes', 'cronograma', 'clientes', 'notificacoes', 'almoxarifado-dashboard', 'almoxarifado-previsao', 'almoxarifado-recebimento', 'almoxarifado-historico'],
+  // Gestor de Orçamentos: fase comercial + obras já convertidas.
+  gestor_orcamentos: ['dashboard', 'orcamentos', 'clientes', 'obras', 'notificacoes'],
+  // Financeiro: pagamentos, faturamento e propostas em aberto.
+  financeiro: ['dashboard', 'financeiro', 'medicoes', 'relatorios', 'orcamentos', 'notificacoes']
 };
 
 // Páginas restritas ao Administrador mesmo dentro de perfis "acesso completo"

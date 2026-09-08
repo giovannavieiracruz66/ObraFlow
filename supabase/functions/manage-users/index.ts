@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
       if (!name || !email || !password || !role) {
         return json({ error: 'Preencha nome, e-mail, senha e perfil.' }, 400);
       }
-      if (!['admin', 'gestor', 'portaria'].includes(role)) {
+      if (!['admin', 'gestor', 'portaria', 'diretoria', 'gestor_contratos', 'gestor_orcamentos', 'financeiro'].includes(role)) {
         return json({ error: 'Perfil inválido.' }, 400);
       }
 
@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
     // === ALTERAR PERFIL ===
     if (action === 'update_role') {
       const { id, role } = body;
-      if (!['admin', 'gestor', 'portaria'].includes(role)) {
+      if (!['admin', 'gestor', 'portaria', 'diretoria', 'gestor_contratos', 'gestor_orcamentos', 'financeiro'].includes(role)) {
         return json({ error: 'Perfil inválido.' }, 400);
       }
       const { error } = await admin.from('profiles').update({ role }).eq('id', id);

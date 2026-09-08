@@ -28,10 +28,11 @@ function renderObras() {
             Lista
           </button>
         </div>
+        ${canWrite() ? `
         <button class="btn btn-primary" onclick="openNewProjectModal()">
           <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Nova Obra
-        </button>
+        </button>` : ''}
       </div>
     </div>
 
@@ -107,7 +108,7 @@ function renderObrasContent() {
         <div class="empty-state-icon"><svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg></div>
         <h3>Nenhuma obra encontrada</h3>
         <p>Tente ajustar os filtros ou cadastre uma nova obra.</p>
-        <button class="btn btn-primary" onclick="openNewProjectModal()">Nova Obra</button>
+        ${canWrite() ? `<button class="btn btn-primary" onclick="openNewProjectModal()">Nova Obra</button>` : ''}
       </div>
     `;
     document.getElementById('obras-pag').innerHTML = '';

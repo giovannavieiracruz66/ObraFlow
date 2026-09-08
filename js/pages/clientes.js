@@ -15,10 +15,11 @@ function renderClientes() {
         <p>${clients.length} clientes cadastrados</p>
       </div>
       <div class="page-header-actions">
+        ${canWrite() ? `
         <button class="btn btn-primary" onclick="openNewClientModal()">
           <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Novo Cliente
-        </button>
+        </button>` : ''}
       </div>
     </div>
 
