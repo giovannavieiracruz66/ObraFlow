@@ -8,7 +8,7 @@
 // ==========================================
 
 const Store = (() => {
-  const TABLES = ['clients', 'projects', 'measurements', 'budgets', 'financial', 'orders', 'order_receipts', 'notifications'];
+  const TABLES = ['clients', 'projects', 'measurements', 'budgets', 'financial', 'orders', 'order_receipts', 'notifications', 'project_services', 'measurement_services'];
   let cache = {};
 
   function camelize(str) { return str.replace(/_([a-z0-9])/g, (_, c) => c.toUpperCase()); }

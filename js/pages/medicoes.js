@@ -209,6 +209,84 @@ function computeAndRenderMedSummary(prefix) {
   return breakdown;
 }
 
+// === ALOCAÇÃO POR SERVIÇO (quanto de cada serviço foi executado nesta medição) ===
+function renderMedServiceAlloc(prefix, projectId, measurementId = null) {
+  const container = document.getElementById(`${prefix}-services-alloc`);
+  if (!container) return;
+  if (!projectId) { container.innerHTML = ''; return; }
+
+  const services = getProjectServicesProgress(projectId);
+  if (!services.length) { container.innerHTML = ''; return; }
+
+  const rows = services.map(s => {
+    const ownAlloc = measurementId ? Store.getList('measurement_services').find(a => a.measurementId === measurementId && a.projectServiceId === s.id) : null;
+    const ownPct = ownAlloc ? ownAlloc.percentage : 0;
+    const baselinePct = Math.max(0, s.executedPct - ownPct);
+    const maxAllowed = Math.max(0, 100 - baselinePct);
+    return { ...s, ownPct, baselinePct, maxAllowed };
+  });
+
+  container.innerHTML = `
+    <div class="card" style="background:var(--gray-50);">
+      <div class="card-header"><div class="card-title" style="font-size:13px;">Alocação por Serviço</div></div>
+      <div class="card-body" style="padding:14px 20px;display:flex;flex-direction:column;gap:12px;">
+        ${rows.map(s => `
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+              <span style="font-weight:600;color:var(--text);">${s.name}</span>
+              <span style="color:var(--text-faint);">Já executado: ${s.baselinePct.toFixed(1)}% • Orçado: ${fmt.currency(s.budgetedValue)}</span>
+            </div>
+            <input class="form-control svc-alloc-pct" data-service-id="${s.id}" data-budgeted="${s.budgetedValue}" type="number" min="0" max="${s.maxAllowed}" value="${s.ownPct || ''}" placeholder="% executado nesta medição" oninput="updateMedServiceTotal('${prefix}')">
+          </div>
+        `).join('')}
+        <div id="${prefix}-services-total" style="font-size:12px;font-weight:700;color:var(--primary-800);border-top:1px solid var(--border);padding-top:10px;"></div>
+      </div>
+    </div>
+  `;
+  updateMedServiceTotal(prefix);
+}
+
+function updateMedServiceTotal(prefix) {
+  const inputs = document.querySelectorAll(`#${prefix}-services-alloc .svc-alloc-pct`);
+  if (!inputs.length) return;
+  let totalBudget = 0, weightedPct = 0;
+  inputs.forEach(inp => {
+    const budgeted = parseFloat(inp.dataset.budgeted) || 0;
+    const pct = parseFloat(inp.value) || 0;
+    totalBudget += budgeted;
+    weightedPct += budgeted * pct;
+  });
+  const overallPct = totalBudget > 0 ? (weightedPct / totalBudget) : 0;
+
+  const totalEl = document.getElementById(`${prefix}-services-total`);
+  if (totalEl) totalEl.textContent = `% desta medição (média ponderada pelos serviços): ${overallPct.toFixed(1)}%`;
+
+  const pctField = document.getElementById(`${prefix}-pct`);
+  if (pctField) pctField.value = overallPct.toFixed(1);
+}
+
+function readMedServiceAllocations(prefix) {
+  const inputs = document.querySelectorAll(`#${prefix}-services-alloc .svc-alloc-pct`);
+  return [...inputs]
+    .map(inp => ({
+      projectServiceId: inp.dataset.serviceId,
+      percentage: parseFloat(inp.value) || 0,
+      budgetedValue: parseFloat(inp.dataset.budgeted) || 0
+    }))
+    .filter(a => a.percentage > 0);
+}
+
+function saveMedServiceAllocations(measurementId, allocations) {
+  allocations.forEach(a => {
+    Store.add('measurement_services', {
+      measurementId,
+      projectServiceId: a.projectServiceId,
+      percentage: a.percentage,
+      value: a.budgetedValue * a.percentage / 100
+    });
+  });
+}
+
 function openNewMeasurementModal(preProjectId = '') {
   const projects = Store.getList('projects');
 
@@ -219,7 +297,7 @@ function openNewMeasurementModal(preProjectId = '') {
       <div class="form-grid">
         <div class="form-group">
           <label class="form-label">Obra *</label>
-          <select class="form-control" id="med-project">
+          <select class="form-control" id="med-project" onchange="renderMedServiceAlloc('med', this.value)">
             <option value="">Selecionar obra</option>
             ${projects.map(p => `<option value="${p.id}" ${p.id===preProjectId?'selected':''}>${p.name}</option>`).join('')}
           </select>
@@ -261,6 +339,7 @@ function openNewMeasurementModal(preProjectId = '') {
           <label class="form-label">Data de Aprovação</label>
           <input class="form-control" id="med-apprdate" type="date">
         </div>
+        <div class="form-group form-col-span-2" id="med-services-alloc"></div>
         <div class="form-group form-col-span-2">
           <label class="form-label">Descrição dos Serviços Realizados</label>
           <textarea class="form-control" id="med-desc" rows="3" placeholder="Descreva os serviços medidos..."></textarea>
@@ -279,13 +358,15 @@ function openNewMeasurementModal(preProjectId = '') {
 
   setTimeout(() => {
     computeAndRenderMedSummary('med');
+    renderMedServiceAlloc('med', preProjectId);
     document.getElementById('modal-cancel')?.addEventListener('click', close);
     document.getElementById('modal-save')?.addEventListener('click', () => {
       const projectId = document.getElementById('med-project').value;
       if (!projectId) { Toast.error('Campo obrigatório', 'Selecione a obra.'); return; }
       const b = computeAndRenderMedSummary('med');
+      const allocations = readMedServiceAllocations('med');
       const existingMeds = Store.getList('measurements').filter(m => m.projectId === projectId);
-      Store.add('measurements', {
+      const measurement = Store.add('measurements', {
         number: existingMeds.length + 1,
         projectId,
         period: document.getElementById('med-period').value,
@@ -307,6 +388,7 @@ function openNewMeasurementModal(preProjectId = '') {
         description: document.getElementById('med-desc').value,
         notes: document.getElementById('med-notes').value
       });
+      saveMedServiceAllocations(measurement.id, allocations);
       close();
       Toast.success('Medição cadastrada!');
       renderMedicoes();
@@ -355,6 +437,7 @@ function openEditMeasurementModal(id) {
           <label class="form-label">Data do Pagamento</label>
           <input class="form-control" id="emed-paid" type="date" value="${m.paidAt||''}">
         </div>
+        <div class="form-group form-col-span-2" id="emed-services-alloc"></div>
         <div class="form-group form-col-span-2">
           <label class="form-label">Descrição</label>
           <textarea class="form-control" id="emed-desc" rows="3">${m.description||''}</textarea>
@@ -373,9 +456,11 @@ function openEditMeasurementModal(id) {
 
   setTimeout(() => {
     computeAndRenderMedSummary('emed');
+    renderMedServiceAlloc('emed', m.projectId, m.id);
     document.getElementById('modal-cancel')?.addEventListener('click', close);
     document.getElementById('modal-save')?.addEventListener('click', () => {
       const b = computeAndRenderMedSummary('emed');
+      const allocations = readMedServiceAllocations('emed');
       Store.update('measurements', id, {
         period: document.getElementById('emed-period').value,
         status: document.getElementById('emed-status').value,
@@ -394,6 +479,10 @@ function openEditMeasurementModal(id) {
         description: document.getElementById('emed-desc').value,
         notes: document.getElementById('emed-notes').value
       });
+
+      Store.getList('measurement_services').filter(a => a.measurementId === id).forEach(a => Store.remove('measurement_services', a.id));
+      saveMedServiceAllocations(id, allocations);
+
       close();
       Toast.success('Medição atualizada!');
       renderMedicoes();

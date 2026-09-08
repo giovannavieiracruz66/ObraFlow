@@ -138,6 +138,7 @@ create table public.budgets (
   sent_at date,
   responded_at date,
   attachments jsonb default '[]'::jsonb,
+  service_items jsonb default '[]'::jsonb,
   created_at timestamptz default now()
 );
 
@@ -200,6 +201,25 @@ create table public.notifications (
   created_at timestamptz default now()
 );
 
+-- Serviços da obra (copiados do orçamento aprovado, ou cadastrados direto)
+create table public.project_services (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid references public.projects(id) on delete cascade,
+  name text not null,
+  budgeted_value numeric default 0,
+  created_at timestamptz default now()
+);
+
+-- % executado de cada serviço, alocado por medição
+create table public.measurement_services (
+  id uuid primary key default gen_random_uuid(),
+  measurement_id uuid references public.measurements(id) on delete cascade,
+  project_service_id uuid references public.project_services(id) on delete cascade,
+  percentage numeric default 0,
+  value numeric default 0,
+  created_at timestamptz default now()
+);
+
 -- ==========================================
 -- ROW LEVEL SECURITY
 -- Admin e Gestor: acesso completo a tudo.
@@ -216,6 +236,8 @@ alter table public.financial enable row level security;
 alter table public.orders enable row level security;
 alter table public.order_receipts enable row level security;
 alter table public.notifications enable row level security;
+alter table public.project_services enable row level security;
+alter table public.measurement_services enable row level security;
 
 -- CLIENTS: admin/gestor/gestor_contratos/gestor_orcamentos escrevem; diretoria só lê.
 create policy "clients_write" on public.clients for all
@@ -270,6 +292,20 @@ create policy "receipts_read_only" on public.order_receipts for select
 create policy "notifications_all_roles" on public.notifications for all
   using (public.current_role() in ('admin','gestor','diretoria','gestor_contratos','gestor_orcamentos','financeiro'))
   with check (public.current_role() in ('admin','gestor','diretoria','gestor_contratos','gestor_orcamentos','financeiro'));
+
+-- PROJECT_SERVICES: admin/gestor/gestor_contratos/gestor_orcamentos escrevem; diretoria só lê.
+create policy "project_services_write" on public.project_services for all
+  using (public.current_role() in ('admin','gestor','gestor_contratos','gestor_orcamentos'))
+  with check (public.current_role() in ('admin','gestor','gestor_contratos','gestor_orcamentos'));
+create policy "project_services_read_only" on public.project_services for select
+  using (public.current_role() in ('diretoria'));
+
+-- MEASUREMENT_SERVICES: admin/gestor/gestor_contratos/financeiro escrevem; diretoria só lê.
+create policy "measurement_services_write" on public.measurement_services for all
+  using (public.current_role() in ('admin','gestor','gestor_contratos','financeiro'))
+  with check (public.current_role() in ('admin','gestor','gestor_contratos','financeiro'));
+create policy "measurement_services_read_only" on public.measurement_services for select
+  using (public.current_role() in ('diretoria'));
 
 -- Grants padrão do Supabase (RLS acima é quem realmente restringe as linhas)
 grant usage on schema public to authenticated;

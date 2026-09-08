@@ -193,6 +193,22 @@ function getMeasurementBreakdown(m) {
   return { labor, material, gross, discount, subtotal, caution, inss, iss, totalTaxes, net, hasBreakdown };
 }
 
+// === SERVIÇOS DA OBRA (progresso acumulado por medição) ===
+// Cada linha de project_services tem um valor orçado; cada medição pode
+// alocar quanto (%) daquele serviço foi executado NESSA medição
+// (measurement_services). Aqui somamos tudo pra saber o acumulado real.
+function getProjectServicesProgress(projectId) {
+  const services = Store.getList('project_services').filter(s => s.projectId === projectId);
+  const allocations = Store.getList('measurement_services');
+
+  return services.map(s => {
+    const rows = allocations.filter(a => a.projectServiceId === s.id);
+    const executedPct = Math.min(100, rows.reduce((sum, r) => sum + (r.percentage || 0), 0));
+    const executedValue = (s.budgetedValue || 0) * executedPct / 100;
+    return { ...s, executedPct, executedValue };
+  });
+}
+
 // === ORDER / ALMOXARIFADO STATUS ===
 function getOrderStatus(order) {
   const saldo = order.quantity - order.delivered;

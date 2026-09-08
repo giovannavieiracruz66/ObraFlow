@@ -279,6 +279,10 @@ function openProjectDetail(id) {
         <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
         Medições
       </button>
+      <button class="tab" onclick="showProjectTab('services','${id}')">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Serviços
+      </button>
       <button class="tab" onclick="showProjectTab('notes','${id}')">
         <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
         Observações
@@ -302,7 +306,7 @@ function showProjectTab(tab, projectId) {
 
   // Update active tab
   document.querySelectorAll('#project-tabs .tab').forEach((t, i) => {
-    t.classList.toggle('active', ['overview','financial','measurements','notes','orders'].indexOf(tab) === i);
+    t.classList.toggle('active', ['overview','financial','measurements','services','notes','orders'].indexOf(tab) === i);
   });
 
   const container = document.getElementById('project-tab-content');
@@ -428,6 +432,39 @@ function showProjectTab(tab, projectId) {
                   <td>${badge('measurement', m.status)}</td>
                 </tr>
               `}).join('') : '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhuma medição cadastrada</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
+
+  if (tab === 'services') {
+    const services = getProjectServicesProgress(projectId);
+    container.innerHTML = `
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Serviços da Obra</div>
+          ${canWrite() ? `<button class="btn btn-sm btn-primary" onclick="openNewProjectServiceModal('${projectId}')">+ Adicionar Serviço</button>` : ''}
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>SERVIÇO</th><th>VALOR ORÇADO</th><th>PROGRESSO</th><th>VALOR EXECUTADO</th><th></th></tr></thead>
+            <tbody>
+              ${services.length ? services.map(s => `
+                <tr>
+                  <td class="td-main">${s.name}</td>
+                  <td class="font-semibold">${fmt.currency(s.budgetedValue)}</td>
+                  <td>
+                    <div style="min-width:120px;">
+                      <div class="progress-bar-wrap"><div class="progress-bar ${s.executedPct >= 100 ? 'green' : 'blue'}" style="width:${s.executedPct}%"></div></div>
+                      <div style="font-size:10px;color:var(--text-faint);margin-top:2px;">${s.executedPct.toFixed(1)}%</div>
+                    </div>
+                  </td>
+                  <td class="font-semibold" style="color:var(--primary-700);">${fmt.currency(s.executedValue)}</td>
+                  <td>${canWrite() ? `<button class="btn btn-sm btn-ghost" style="color:var(--danger);" onclick="deleteProjectService('${s.id}','${projectId}')"><svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></button>` : ''}</td>
+                </tr>
+              `).join('') : '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhum serviço cadastrado. Adicione manualmente ou aprove um orçamento com itens.</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -896,6 +933,60 @@ function deleteOrder(orderId, projectId) {
       Toast.success('Pedido excluído!');
       openProjectDetail(projectId);
       showProjectTab('orders', projectId);
+    }
+  });
+}
+
+// === SERVIÇOS DA OBRA ===
+function openNewProjectServiceModal(projectId) {
+  const { close } = Modal.create({
+    title: 'Novo Serviço',
+    size: 'modal-sm',
+    body: `
+      <div class="form-group">
+        <label class="form-label">Nome do Serviço *</label>
+        <input class="form-control" id="ps-name" placeholder="Ex: Terraplanagem">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Valor Orçado (R$)</label>
+        <input class="form-control" id="ps-value" type="number" placeholder="0">
+      </div>
+    `,
+    footer: `
+      <button class="btn btn-outline" id="modal-cancel">Cancelar</button>
+      <button class="btn btn-primary" id="modal-save">Salvar</button>
+    `
+  });
+
+  setTimeout(() => {
+    document.getElementById('modal-cancel')?.addEventListener('click', close);
+    document.getElementById('modal-save')?.addEventListener('click', () => {
+      const name = document.getElementById('ps-name').value.trim();
+      if (!name) { Toast.error('Campo obrigatório', 'Informe o nome do serviço.'); return; }
+      Store.add('project_services', {
+        projectId,
+        name,
+        budgetedValue: parseFloat(document.getElementById('ps-value').value) || 0
+      });
+      close();
+      Toast.success('Serviço adicionado!');
+      openProjectDetail(projectId);
+      showProjectTab('services', projectId);
+    });
+  }, 50);
+}
+
+function deleteProjectService(serviceId, projectId) {
+  confirmDialog({
+    title: 'Excluir Serviço',
+    message: 'Excluir este serviço? O histórico de medições vinculado a ele também será perdido.',
+    confirmText: 'Excluir',
+    type: 'danger',
+    onConfirm: () => {
+      Store.remove('project_services', serviceId);
+      Toast.success('Serviço excluído!');
+      openProjectDetail(projectId);
+      showProjectTab('services', projectId);
     }
   });
 }

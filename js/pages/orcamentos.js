@@ -172,7 +172,16 @@ function openBudgetDetail(id) {
       </div>
       <div style="margin-bottom:16px;">
         <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:4px;">Serviços</div>
-        <p style="font-size:13px;color:var(--text-light);">${b.services || '—'}</p>
+        ${b.serviceItems && b.serviceItems.length ? `
+          <div class="table-wrapper" style="margin-top:8px;">
+            <table>
+              <thead><tr><th>SERVIÇO</th><th>VALOR</th></tr></thead>
+              <tbody>
+                ${b.serviceItems.map(it => `<tr><td class="td-main">${it.name}</td><td class="font-semibold">${fmt.currency(it.value)}</td></tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : `<p style="font-size:13px;color:var(--text-light);">${b.services || '—'}</p>`}
       </div>
       <div style="background:var(--gray-50);border-radius:10px;padding:16px;margin-bottom:16px;">
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;text-align:center;">
@@ -286,6 +295,49 @@ window.deleteBudgetAttachment = function(budgetId, path) {
   });
 };
 
+// === ITENS DE SERVIÇO (orçamento) ===
+function serviceItemRow(it = {}) {
+  return `
+    <div class="service-item-row" style="display:flex;gap:8px;margin-bottom:8px;align-items:center;">
+      <input class="form-control svc-name" placeholder="Nome do serviço (ex: Terraplanagem)" value="${it.name ? String(it.name).replace(/"/g, '&quot;') : ''}" style="flex:2;">
+      <input class="form-control svc-value" type="number" placeholder="Valor (R$)" value="${it.value || ''}" style="flex:1;">
+      <button type="button" class="btn btn-sm btn-ghost" style="color:var(--danger);flex-shrink:0;" onclick="this.closest('.service-item-row').remove()">
+        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+      </button>
+    </div>
+  `;
+}
+
+function serviceItemsBuilder(prefix, items = []) {
+  const rows = items.length ? items : [{}];
+  return `
+    <div class="form-group form-col-span-2">
+      <label class="form-label">Serviços (cada item vira uma linha de acompanhamento na obra)</label>
+      <div id="${prefix}-service-items">
+        ${rows.map(it => serviceItemRow(it)).join('')}
+      </div>
+      <button type="button" class="btn btn-sm btn-outline" style="margin-top:4px;" onclick="addServiceItemRow('${prefix}')">+ Adicionar Serviço</button>
+    </div>
+  `;
+}
+
+function addServiceItemRow(prefix) {
+  const container = document.getElementById(`${prefix}-service-items`);
+  if (!container) return;
+  container.insertAdjacentHTML('beforeend', serviceItemRow());
+}
+
+function readServiceItems(prefix) {
+  const container = document.getElementById(`${prefix}-service-items`);
+  if (!container) return [];
+  return [...container.querySelectorAll('.service-item-row')]
+    .map(row => ({
+      name: row.querySelector('.svc-name').value.trim(),
+      value: parseFloat(row.querySelector('.svc-value').value) || 0
+    }))
+    .filter(it => it.name);
+}
+
 function openNewBudgetModal() {
   const clients = Store.getList('clients');
   const num = `ORC-${new Date().getFullYear()}-${String(Store.getList('budgets').length + 1).padStart(3,'0')}`;
@@ -340,10 +392,7 @@ function openNewBudgetModal() {
             ${Object.entries(StatusHelpers.budget.labels).map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}
           </select>
         </div>
-        <div class="form-group form-col-span-2">
-          <label class="form-label">Descrição dos Serviços</label>
-          <textarea class="form-control" id="b-services" rows="3"></textarea>
-        </div>
+        ${serviceItemsBuilder('b')}
         <div class="form-group form-col-span-2">
           <label class="form-label">Observações</label>
           <textarea class="form-control" id="b-notes" rows="2"></textarea>
@@ -365,6 +414,7 @@ function openNewBudgetModal() {
       const mat = parseFloat(document.getElementById('b-materials').value)||0;
       const lab = parseFloat(document.getElementById('b-labor').value)||0;
       const disc = parseFloat(document.getElementById('b-discount').value)||0;
+      const serviceItems = readServiceItems('b');
       Store.add('budgets', {
         number: document.getElementById('b-num').value,
         clientId, projectName: proj,
@@ -372,7 +422,8 @@ function openNewBudgetModal() {
         validUntil: document.getElementById('b-valid').value,
         materials: mat, labor: lab, discount: disc,
         value: mat + lab, finalValue: parseFloat(document.getElementById('b-final').value)||(mat+lab-disc),
-        services: document.getElementById('b-services').value,
+        serviceItems,
+        services: serviceItems.map(i => i.name).join(', '),
         notes: document.getElementById('b-notes').value,
         status: document.getElementById('b-status').value,
         sentAt: null, respondedAt: null
@@ -432,6 +483,7 @@ function openEditBudgetModal(id) {
           <label class="form-label">Valor Final (R$)</label>
           <input class="form-control" id="eb-final" type="number" value="${b.finalValue}">
         </div>
+        ${serviceItemsBuilder('eb', b.serviceItems || [])}
         <div class="form-group form-col-span-2">
           <label class="form-label">Observações</label>
           <textarea class="form-control" id="eb-notes" rows="2">${b.notes||''}</textarea>
@@ -447,6 +499,7 @@ function openEditBudgetModal(id) {
   setTimeout(() => {
     document.getElementById('modal-cancel')?.addEventListener('click', close);
     document.getElementById('modal-save')?.addEventListener('click', () => {
+      const serviceItems = readServiceItems('eb');
       Store.update('budgets', id, {
         projectName: document.getElementById('eb-projname').value,
         status: document.getElementById('eb-status').value,
@@ -455,6 +508,8 @@ function openEditBudgetModal(id) {
         labor: parseFloat(document.getElementById('eb-labor').value)||0,
         discount: parseFloat(document.getElementById('eb-discount').value)||0,
         finalValue: parseFloat(document.getElementById('eb-final').value)||0,
+        serviceItems,
+        services: serviceItems.map(i => i.name).join(', '),
         notes: document.getElementById('eb-notes').value
       });
       close();
@@ -493,6 +548,15 @@ function convertBudgetToProject(budgetId) {
         physicalProgress: 0
       });
       Store.update('budgets', budgetId, { status: 'aprovado' });
+
+      (b.serviceItems || []).forEach(item => {
+        Store.add('project_services', {
+          projectId: project.id,
+          name: item.name,
+          budgetedValue: item.value || 0
+        });
+      });
+
       Toast.success('Obra criada!', `${b.projectName} foi adicionado como novo projeto.`);
       openProjectDetail(project.id);
     }
