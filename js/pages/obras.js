@@ -410,20 +410,23 @@ function showProjectTab(tab, projectId) {
         </div>
         <div class="table-wrapper">
           <table>
-            <thead><tr><th>#</th><th>PERÍODO</th><th>DESCRIÇÃO</th><th>VALOR</th><th>APROVADO</th><th>VENCIMENTO</th><th>PAGO EM</th><th>STATUS</th></tr></thead>
+            <thead><tr><th>#</th><th>PERÍODO</th><th>DESCRIÇÃO</th><th>BRUTO (A)</th><th>LÍQUIDO</th><th>APROVADO</th><th>VENCIMENTO</th><th>PAGO EM</th><th>STATUS</th></tr></thead>
             <tbody>
-              ${fin.measurements.length ? fin.measurements.map(m => `
+              ${fin.measurements.length ? fin.measurements.map(m => {
+                const b = getMeasurementBreakdown(m);
+                return `
                 <tr>
                   <td class="td-main">Med. ${m.number}</td>
                   <td>${m.period}</td>
                   <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m.description}</td>
-                  <td class="font-semibold">${fmt.currency(m.value)}</td>
+                  <td class="font-semibold">${fmt.currency(b.gross)}</td>
+                  <td class="font-semibold" style="color:var(--primary-700);">${fmt.currency(b.net)}</td>
                   <td>${m.approvedValue ? fmt.currency(m.approvedValue) : '—'}</td>
                   <td>${fmt.date(m.paymentDue)}</td>
                   <td>${fmt.date(m.paidAt)}</td>
                   <td>${badge('measurement', m.status)}</td>
                 </tr>
-              `).join('') : '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhuma medição cadastrada</td></tr>'}
+              `}).join('') : '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhuma medição cadastrada</td></tr>'}
             </tbody>
           </table>
         </div>

@@ -167,6 +167,25 @@ function badge(entity, status) {
   return `<span class="badge ${h.badges[status] || 'badge-gray'}">${h.labels[status] || status}</span>`;
 }
 
+// === ESTRUTURA DE MEDIÇÃO ===
+// Mão de obra + material -> (A) Bruto -> (B) Desconto -> Subtotal ->
+// (C) Caução/Permuta -> (D) Impostos (INSS+ISS) -> Total Líquido.
+// Medições antigas (sem esses campos) caem no fallback: bruto = value.
+function getMeasurementBreakdown(m) {
+  const hasBreakdown = !!(m.laborValue || m.materialValue || m.directBillingDiscount || m.cautionValue || m.inssValue || m.issValue);
+  const labor = m.laborValue || 0;
+  const material = m.materialValue || 0;
+  const gross = hasBreakdown ? (labor + material) : (m.value || 0); // (A)
+  const discount = m.directBillingDiscount || 0; // (B)
+  const subtotal = gross - discount; // (A)-(B)
+  const caution = m.cautionValue || 0; // (C)
+  const inss = m.inssValue || 0;
+  const iss = m.issValue || 0;
+  const totalTaxes = inss + iss; // (D)
+  const net = subtotal - caution - totalTaxes; // Total Líquido
+  return { labor, material, gross, discount, subtotal, caution, inss, iss, totalTaxes, net, hasBreakdown };
+}
+
 // === ORDER / ALMOXARIFADO STATUS ===
 function getOrderStatus(order) {
   const saldo = order.quantity - order.delivered;

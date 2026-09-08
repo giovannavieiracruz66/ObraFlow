@@ -61,7 +61,7 @@ function renderMedicoes() {
       <div class="table-wrapper">
         <table id="medic-table">
           <thead>
-            <tr><th>#</th><th>OBRA</th><th>PERÍODO</th><th>VALOR</th><th>APROVADO</th><th>VENCIMENTO</th><th>PAGO EM</th><th>STATUS</th><th></th></tr>
+            <tr><th>#</th><th>OBRA</th><th>PERÍODO</th><th>BRUTO (A)</th><th>LÍQUIDO</th><th>APROVADO</th><th>VENCIMENTO</th><th>PAGO EM</th><th>STATUS</th><th></th></tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -92,7 +92,9 @@ function renderMedicContent() {
     perPage: 10,
     containerId: 'medic',
     tableId: 'medic-table',
-    renderRow: m => `
+    renderRow: m => {
+      const b = getMeasurementBreakdown(m);
+      return `
       <tr>
         <td class="td-main">Med. ${m.number}</td>
         <td>
@@ -100,7 +102,8 @@ function renderMedicContent() {
           <div style="font-size:11px;color:var(--text-faint);">${m.period}</div>
         </td>
         <td>${m.period}</td>
-        <td class="font-semibold">${fmt.currency(m.value)}</td>
+        <td class="font-semibold">${fmt.currency(b.gross)}</td>
+        <td class="font-semibold" style="color:var(--primary-700);">${fmt.currency(b.net)}</td>
         <td>${m.approvedValue ? fmt.currency(m.approvedValue) : '—'}</td>
         <td>${fmt.date(m.paymentDue)}</td>
         <td>${fmt.date(m.paidAt)}</td>
@@ -116,8 +119,93 @@ function renderMedicContent() {
           </div>
         </td>
       </tr>
-    `
+    `;
+    }
   });
+}
+
+// === ESTRUTURA DE MEDIÇÃO (campos + resumo calculado ao vivo) ===
+function measurementBreakdownFields(prefix, m = {}) {
+  return `
+    <div class="form-group">
+      <label class="form-label">Total Mão de Obra (R$)</label>
+      <input class="form-control" id="${prefix}-labor" type="number" placeholder="0" value="${m.laborValue || ''}" oninput="computeAndRenderMedSummary('${prefix}')">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Total Material (R$)</label>
+      <input class="form-control" id="${prefix}-material" type="number" placeholder="0" value="${m.materialValue || ''}" oninput="computeAndRenderMedSummary('${prefix}')">
+    </div>
+    <div class="form-group">
+      <label class="form-label">(B) Desconto Faturamento Direto (R$)</label>
+      <input class="form-control" id="${prefix}-discount" type="number" placeholder="0" value="${m.directBillingDiscount || ''}" oninput="computeAndRenderMedSummary('${prefix}')">
+    </div>
+    <div class="form-group">
+      <label class="form-label">(C) Caução / Permuta (R$)</label>
+      <input class="form-control" id="${prefix}-caution" type="number" placeholder="0" value="${m.cautionValue || ''}" oninput="computeAndRenderMedSummary('${prefix}')">
+    </div>
+    <div class="form-group">
+      <label class="form-label">(D) INSS (R$)</label>
+      <input class="form-control" id="${prefix}-inss" type="number" placeholder="0" value="${m.inssValue || ''}" oninput="computeAndRenderMedSummary('${prefix}')">
+    </div>
+    <div class="form-group">
+      <label class="form-label">(D) ISS (R$)</label>
+      <input class="form-control" id="${prefix}-iss" type="number" placeholder="0" value="${m.issValue || ''}" oninput="computeAndRenderMedSummary('${prefix}')">
+    </div>
+    <div class="form-group form-col-span-2">
+      <div class="card" style="background:var(--gray-50);">
+        <div class="card-header"><div class="card-title" style="font-size:13px;">Estrutura de Medição</div></div>
+        <div class="card-body" id="${prefix}-summary" style="padding:14px 20px;"></div>
+      </div>
+    </div>
+  `;
+}
+
+function medRow(label, value, opts = {}) {
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;
+      padding:${opts.border ? '10px' : '4px'} 0 4px;
+      ${opts.border ? 'border-top:1px solid var(--border);margin-top:6px;' : ''}
+      ${opts.indent ? 'padding-left:18px;' : ''}">
+      <span style="font-size:13px;${opts.bold ? 'font-weight:700;color:var(--text);' : 'color:var(--text-light);'}">${label}</span>
+      ${value !== null ? `<span style="font-size:13px;${opts.bold ? 'font-weight:700;color:var(--text);' : ''}">${fmt.currency(value)}</span>` : ''}
+    </div>
+  `;
+}
+
+function renderMedSummaryHTML(b) {
+  return `
+    ${medRow('Total Mão de Obra', b.labor)}
+    ${medRow('Total Material', b.material)}
+    ${medRow('(A) Total da Medição Bruta', b.gross, { bold: true, border: true })}
+    ${medRow('(B) Desconto Faturamento Direto', b.discount, { border: true })}
+    ${medRow('(A)-(B) Subtotal', b.subtotal, { bold: true, border: true })}
+    ${medRow('(C) Caução / Permuta', b.caution, { border: true })}
+    ${medRow('(D) Impostos', null, { border: true, bold: true })}
+    ${medRow('INSS', b.inss, { indent: true })}
+    ${medRow('ISS', b.iss, { indent: true })}
+    ${medRow('Total dos Impostos', b.totalTaxes, { indent: true, bold: true })}
+    ${medRow('((A)-(B))-(C)-(D) Total Líquido', b.net, { bold: true, border: true })}
+  `;
+}
+
+function computeAndRenderMedSummary(prefix) {
+  const val = (id) => parseFloat(document.getElementById(`${prefix}-${id}`)?.value) || 0;
+  const labor = val('labor');
+  const material = val('material');
+  const gross = labor + material;
+  const discount = val('discount');
+  const subtotal = gross - discount;
+  const caution = val('caution');
+  const inss = val('inss');
+  const iss = val('iss');
+  const totalTaxes = inss + iss;
+  const net = subtotal - caution - totalTaxes;
+  const breakdown = { labor, material, gross, discount, subtotal, caution, inss, iss, totalTaxes, net };
+
+  const summaryEl = document.getElementById(`${prefix}-summary`);
+  if (summaryEl) summaryEl.innerHTML = renderMedSummaryHTML(breakdown);
+
+  return breakdown;
 }
 
 function openNewMeasurementModal(preProjectId = '') {
@@ -149,10 +237,9 @@ function openNewMeasurementModal(preProjectId = '') {
             ${Object.entries(StatusHelpers.measurement.labels).map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}
           </select>
         </div>
-        <div class="form-group">
-          <label class="form-label">Valor da Medição (R$)</label>
-          <input class="form-control" id="med-value" type="number" placeholder="0">
-        </div>
+
+        ${measurementBreakdownFields('med')}
+
         <div class="form-group">
           <label class="form-label">Valor Aprovado (R$)</label>
           <input class="form-control" id="med-approved" type="number" placeholder="0">
@@ -190,10 +277,12 @@ function openNewMeasurementModal(preProjectId = '') {
   });
 
   setTimeout(() => {
+    computeAndRenderMedSummary('med');
     document.getElementById('modal-cancel')?.addEventListener('click', close);
     document.getElementById('modal-save')?.addEventListener('click', () => {
       const projectId = document.getElementById('med-project').value;
       if (!projectId) { Toast.error('Campo obrigatório', 'Selecione a obra.'); return; }
+      const b = computeAndRenderMedSummary('med');
       const existingMeds = Store.getList('measurements').filter(m => m.projectId === projectId);
       Store.add('measurements', {
         number: existingMeds.length + 1,
@@ -201,7 +290,13 @@ function openNewMeasurementModal(preProjectId = '') {
         period: document.getElementById('med-period').value,
         date: document.getElementById('med-date').value,
         status: document.getElementById('med-status').value,
-        value: parseFloat(document.getElementById('med-value').value) || 0,
+        value: b.gross,
+        laborValue: b.labor,
+        materialValue: b.material,
+        directBillingDiscount: b.discount,
+        cautionValue: b.caution,
+        inssValue: b.inss,
+        issValue: b.iss,
         approvedValue: parseFloat(document.getElementById('med-approved').value) || null,
         percentage: parseFloat(document.getElementById('med-pct').value) || 0,
         paymentDue: document.getElementById('med-due').value || null,
@@ -237,10 +332,8 @@ function openEditMeasurementModal(id) {
             ${Object.entries(StatusHelpers.measurement.labels).map(([v,l]) => `<option value="${v}" ${m.status===v?'selected':''}>${l}</option>`).join('')}
           </select>
         </div>
-        <div class="form-group">
-          <label class="form-label">Valor (R$)</label>
-          <input class="form-control" id="emed-value" type="number" value="${m.value}">
-        </div>
+        ${measurementBreakdownFields('emed', m)}
+
         <div class="form-group">
           <label class="form-label">Valor Aprovado (R$)</label>
           <input class="form-control" id="emed-approved" type="number" value="${m.approvedValue||''}">
@@ -278,12 +371,20 @@ function openEditMeasurementModal(id) {
   });
 
   setTimeout(() => {
+    computeAndRenderMedSummary('emed');
     document.getElementById('modal-cancel')?.addEventListener('click', close);
     document.getElementById('modal-save')?.addEventListener('click', () => {
+      const b = computeAndRenderMedSummary('emed');
       Store.update('measurements', id, {
         period: document.getElementById('emed-period').value,
         status: document.getElementById('emed-status').value,
-        value: parseFloat(document.getElementById('emed-value').value) || 0,
+        value: b.gross,
+        laborValue: b.labor,
+        materialValue: b.material,
+        directBillingDiscount: b.discount,
+        cautionValue: b.caution,
+        inssValue: b.inss,
+        issValue: b.iss,
         approvedValue: parseFloat(document.getElementById('emed-approved').value) || null,
         percentage: parseFloat(document.getElementById('emed-pct').value) || 0,
         paymentDue: document.getElementById('emed-due').value || null,

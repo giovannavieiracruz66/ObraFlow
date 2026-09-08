@@ -110,6 +110,13 @@ create table public.measurements (
   paid_at date,
   status text default 'em_elaboracao',
   notes text,
+  -- Estrutura de Medição (mão de obra / material / descontos / impostos)
+  labor_value numeric default 0,
+  material_value numeric default 0,
+  direct_billing_discount numeric default 0,
+  caution_value numeric default 0,
+  inss_value numeric default 0,
+  iss_value numeric default 0,
   created_at timestamptz default now()
 );
 
