@@ -131,7 +131,7 @@ function renderOrcContent() {
         <td>
           <div style="display:flex;gap:4px;flex-wrap:wrap;">
             <button class="btn btn-sm btn-outline" onclick="openBudgetDetail('${b.id}')">Ver</button>
-            ${b.status === 'aprovado' ? `<button class="btn btn-sm btn-accent" onclick="convertBudgetToProject('${b.id}')">→ Obra</button>` : ''}
+            ${canWrite() && !['recusado', 'expirado'].includes(b.status) ? `<button class="btn btn-sm btn-accent" onclick="convertBudgetToProject('${b.id}')">✓ Orçamento Aprovado</button>` : ''}
             <button class="btn btn-sm btn-ghost" onclick="openEditBudgetModal('${b.id}')">Editar</button>
             <button class="btn btn-sm btn-ghost" style="color:var(--danger);" onclick="deleteBudget('${b.id}')">
               <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
@@ -212,7 +212,7 @@ function openBudgetDetail(id) {
       <div style="display:flex;align-items:center;gap:12px;">
         <div style="font-size:13px;color:var(--text-muted);">Status:</div>
         ${badge('budget', b.status)}
-        ${b.status === 'aprovado' ? `<button class="btn btn-sm btn-accent" onclick="convertBudgetToProject('${b.id}')">Converter em Obra →</button>` : ''}
+        ${canWrite() && !['recusado', 'expirado'].includes(b.status) ? `<button class="btn btn-sm btn-accent" onclick="convertBudgetToProject('${b.id}')">✓ Orçamento Aprovado</button>` : ''}
       </div>
       ${b.notes ? `<div style="margin-top:12px;padding:12px;background:var(--warning-light);border-radius:8px;font-size:13px;color:var(--warning-dark);">📝 ${b.notes}</div>` : ''}
     `,
@@ -420,9 +420,9 @@ function convertBudgetToProject(budgetId) {
   const b = Store.getById('budgets', budgetId);
   if (!b) return;
   confirmDialog({
-    title: 'Converter em Obra',
-    message: `Deseja criar uma nova obra a partir do orçamento "${b.projectName}"?`,
-    confirmText: 'Criar Obra',
+    title: 'Aprovar Orçamento',
+    message: `Marcar "${b.projectName}" como aprovado e criar a obra correspondente em Obras & Projetos?`,
+    confirmText: 'Aprovar e Criar Obra',
     type: 'warning',
     onConfirm: () => {
       const project = Store.add('projects', {
