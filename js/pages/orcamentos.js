@@ -190,12 +190,18 @@ function openBudgetDetail(id) {
           <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:8px;">Anexos e Versões (PDF)</div>
           <div style="display:flex;flex-direction:column;gap:8px;">
             ${b.attachments.map(att => `
-              <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:6px;cursor:pointer;" onclick="openBudgetAttachment('${(att.path || '').replace(/'/g, "\\'")}')">
-                <div style="display:flex;align-items:center;gap:8px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:6px;">
+                <div style="display:flex;align-items:center;gap:8px;cursor:pointer;" onclick="openBudgetAttachment('${(att.path || '').replace(/'/g, "\\'")}')">
                   <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--danger);"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
                   <span style="font-size:13px;font-weight:600;color:var(--primary-800);text-decoration:underline;">${att.name}</span>
                 </div>
-                <div style="font-size:11px;color:var(--text-faint);">${fmt.date(att.date)}</div>
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <div style="font-size:11px;color:var(--text-faint);">${fmt.date(att.date)}</div>
+                  ${canWrite() ? `
+                  <button class="btn btn-sm btn-ghost" style="color:var(--danger);padding:2px 6px;" title="Excluir anexo" onclick="event.stopPropagation();deleteBudgetAttachment('${b.id}','${(att.path || '').replace(/'/g, "\\'")}')">
+                    <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+                  </button>` : ''}
+                </div>
               </div>
             `).join('')}
           </div>
@@ -252,6 +258,32 @@ window.openBudgetAttachment = async function(path) {
   const { data, error } = await sb.storage.from('budget-attachments').createSignedUrl(path, 3600);
   if (error) { Toast.error('Erro ao abrir arquivo', error.message); return; }
   window.open(data.signedUrl, '_blank');
+};
+
+window.deleteBudgetAttachment = function(budgetId, path) {
+  confirmDialog({
+    title: 'Excluir Anexo',
+    message: 'Tem certeza que deseja excluir este PDF? Essa ação não pode ser desfeita.',
+    confirmText: 'Excluir',
+    type: 'danger',
+    onConfirm: async () => {
+      const b = Store.getById('budgets', budgetId);
+      if (!b) return;
+
+      if (path) {
+        const { error } = await sb.storage.from('budget-attachments').remove([path]);
+        if (error) { Toast.error('Erro ao excluir arquivo', error.message); return; }
+      }
+
+      const att = (b.attachments || []).filter(a => a.path !== path);
+      Store.update('budgets', budgetId, { attachments: att });
+      Toast.success('Anexo excluído!');
+
+      document.querySelectorAll('.modal-overlay').forEach(el => el.remove());
+      document.body.style.overflow = '';
+      openBudgetDetail(budgetId);
+    }
+  });
 };
 
 function openNewBudgetModal() {
