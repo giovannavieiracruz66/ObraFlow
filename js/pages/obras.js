@@ -525,7 +525,10 @@ function showProjectTab(tab, projectId) {
                   <td>${badge('order', status)}</td>
                   <td>
                     <div style="display:flex;gap:4px;">
-                      ${saldo > 0 ? `<button class="btn btn-sm btn-outline" onclick="openReceiveMaterialModal('${o.id}', () => { openProjectDetail('${projectId}'); showProjectTab('orders','${projectId}'); })">Receber</button>` : ''}
+                      ${saldo > 0 && canWrite() ? `<button class="btn btn-sm btn-outline" onclick="openReceiveMaterialModal('${o.id}', () => { openProjectDetail('${projectId}'); showProjectTab('orders','${projectId}'); })">Receber</button>` : ''}
+                      ${canWrite() ? `<button class="btn btn-sm btn-ghost" onclick="openEditOrderModal('${o.id}', '${projectId}')">
+                        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                      </button>` : ''}
                       <button class="btn btn-sm btn-ghost" style="color:var(--danger);" onclick="deleteOrder('${o.id}', '${projectId}')">
                         <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
                       </button>
@@ -849,6 +852,73 @@ function deleteTransaction(txId, projectId) {
   });
 }
 
+// === FORNECEDORES (cadastro reutilizável) ===
+function supplierFieldHTML(prefix, currentName = '') {
+  const suppliers = Store.getList('suppliers');
+  const hasCurrent = currentName && !suppliers.some(s => s.name === currentName);
+  return `
+    <div class="form-group">
+      <label class="form-label">Fornecedor</label>
+      <div style="display:flex;gap:6px;">
+        <select class="form-control" id="${prefix}-supplier" style="flex:1;">
+          <option value="">Selecionar fornecedor</option>
+          ${hasCurrent ? `<option value="${currentName}" selected>${currentName} (não cadastrado)</option>` : ''}
+          ${suppliers.map(s => `<option value="${s.name}" ${s.name === currentName ? 'selected' : ''}>${s.name}</option>`).join('')}
+        </select>
+        <button type="button" class="btn btn-sm btn-outline" style="flex-shrink:0;" onclick="openNewSupplierModal('${prefix}')">+ Novo</button>
+      </div>
+    </div>
+  `;
+}
+
+function openNewSupplierModal(prefix) {
+  const { close } = Modal.create({
+    title: 'Novo Fornecedor',
+    size: 'modal-sm',
+    body: `
+      <div class="form-group">
+        <label class="form-label">Nome *</label>
+        <input class="form-control" id="sup-name" placeholder="Ex: Votorantim Materiais">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Telefone</label>
+        <input class="form-control" id="sup-phone" placeholder="(11) 99999-9999">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Observações</label>
+        <textarea class="form-control" id="sup-notes" rows="2"></textarea>
+      </div>
+    `,
+    footer: `
+      <button class="btn btn-outline" id="sup-modal-cancel">Cancelar</button>
+      <button class="btn btn-primary" id="sup-modal-save">Salvar</button>
+    `
+  });
+
+  setTimeout(() => {
+    document.getElementById('sup-modal-cancel')?.addEventListener('click', close);
+    document.getElementById('sup-modal-save')?.addEventListener('click', () => {
+      const name = document.getElementById('sup-name').value.trim();
+      if (!name) { Toast.error('Campo obrigatório', 'Informe o nome do fornecedor.'); return; }
+
+      Store.add('suppliers', {
+        name,
+        phone: document.getElementById('sup-phone').value.trim() || null,
+        notes: document.getElementById('sup-notes').value
+      });
+      close();
+      Toast.success('Fornecedor cadastrado!');
+
+      const select = document.getElementById(`${prefix}-supplier`);
+      if (select) {
+        select.innerHTML = `<option value="">Selecionar fornecedor</option>` +
+          Store.getList('suppliers').map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+        select.value = name;
+      }
+    });
+  }, 50);
+}
+
 function openNewOrderModal(projectId) {
   const { close } = Modal.create({
     title: 'Novo Pedido',
@@ -863,10 +933,7 @@ function openNewOrderModal(projectId) {
           <label class="form-label">SKU / Código</label>
           <input class="form-control" id="ord-sku" placeholder="Ex: CIM-CPII-50">
         </div>
-        <div class="form-group">
-          <label class="form-label">Fornecedor</label>
-          <input class="form-control" id="ord-supplier" placeholder="Ex: Votorantim Materiais">
-        </div>
+        ${supplierFieldHTML('ord')}
         <div class="form-group">
           <label class="form-label">Unidade de Medida</label>
           <input class="form-control" id="ord-unit" placeholder="Ex: kg, un, m³" value="un">
@@ -906,7 +973,7 @@ function openNewOrderModal(projectId) {
         projectId,
         item,
         sku: document.getElementById('ord-sku').value.trim() || null,
-        supplier: document.getElementById('ord-supplier').value.trim() || null,
+        supplier: document.getElementById('ord-supplier').value || null,
         unit: document.getElementById('ord-unit').value || 'un',
         quantity: qty,
         delivered: 0,
@@ -916,6 +983,82 @@ function openNewOrderModal(projectId) {
       });
       close();
       Toast.success('Pedido adicionado!');
+      openProjectDetail(projectId);
+      showProjectTab('orders', projectId);
+    });
+  }, 50);
+}
+
+function openEditOrderModal(orderId, projectId) {
+  const o = Store.getById('orders', orderId);
+  if (!o) return;
+
+  const { close } = Modal.create({
+    title: 'Editar Pedido',
+    size: 'modal-lg',
+    body: `
+      <div class="form-grid">
+        <div class="form-group form-col-span-2">
+          <label class="form-label">Item / Descrição *</label>
+          <input class="form-control" id="eord-item" value="${o.item || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">SKU / Código</label>
+          <input class="form-control" id="eord-sku" value="${o.sku || ''}">
+        </div>
+        ${supplierFieldHTML('eord', o.supplier)}
+        <div class="form-group">
+          <label class="form-label">Unidade de Medida</label>
+          <input class="form-control" id="eord-unit" value="${o.unit || 'un'}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Quantidade Total *</label>
+          <input class="form-control" id="eord-qty" type="number" min="${o.delivered || 0}" value="${o.quantity}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Já Entregue</label>
+          <input class="form-control" id="eord-delivered" type="number" min="0" value="${o.delivered || 0}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Valor Unitário (R$)</label>
+          <input class="form-control" id="eord-unit-value" type="number" value="${o.unitValue || 0}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Previsão de Entrega</label>
+          <input class="form-control" id="eord-expected" type="date" value="${o.expectedDate || ''}">
+        </div>
+        <div class="form-group form-col-span-2">
+          <label class="form-label">Observações</label>
+          <textarea class="form-control" id="eord-notes" rows="2">${o.notes || ''}</textarea>
+        </div>
+      </div>
+    `,
+    footer: `
+      <button class="btn btn-outline" id="modal-cancel">Cancelar</button>
+      <button class="btn btn-primary" id="modal-save">Salvar</button>
+    `
+  });
+
+  setTimeout(() => {
+    document.getElementById('modal-cancel')?.addEventListener('click', close);
+    document.getElementById('modal-save')?.addEventListener('click', () => {
+      const item = document.getElementById('eord-item').value.trim();
+      const qty = parseFloat(document.getElementById('eord-qty').value);
+      if (!item || !qty) { Toast.error('Campos obrigatórios', 'Informe a descrição e quantidade.'); return; }
+
+      Store.update('orders', orderId, {
+        item,
+        sku: document.getElementById('eord-sku').value.trim() || null,
+        supplier: document.getElementById('eord-supplier').value || null,
+        unit: document.getElementById('eord-unit').value || 'un',
+        quantity: qty,
+        delivered: Math.min(qty, parseFloat(document.getElementById('eord-delivered').value) || 0),
+        unitValue: parseFloat(document.getElementById('eord-unit-value').value) || 0,
+        expectedDate: document.getElementById('eord-expected').value || null,
+        notes: document.getElementById('eord-notes').value
+      });
+      close();
+      Toast.success('Pedido atualizado!');
       openProjectDetail(projectId);
       showProjectTab('orders', projectId);
     });

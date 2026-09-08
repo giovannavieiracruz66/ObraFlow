@@ -220,6 +220,15 @@ create table public.measurement_services (
   created_at timestamptz default now()
 );
 
+-- Fornecedores (cadastro reutilizável, pra padronizar nome nos pedidos)
+create table public.suppliers (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  phone text,
+  notes text,
+  created_at timestamptz default now()
+);
+
 -- ==========================================
 -- ROW LEVEL SECURITY
 -- Admin e Gestor: acesso completo a tudo.
@@ -238,6 +247,7 @@ alter table public.order_receipts enable row level security;
 alter table public.notifications enable row level security;
 alter table public.project_services enable row level security;
 alter table public.measurement_services enable row level security;
+alter table public.suppliers enable row level security;
 
 -- CLIENTS: admin/gestor/gestor_contratos/gestor_orcamentos escrevem; diretoria só lê.
 create policy "clients_write" on public.clients for all
@@ -306,6 +316,13 @@ create policy "measurement_services_write" on public.measurement_services for al
   with check (public.current_role() in ('admin','gestor','gestor_contratos','financeiro'));
 create policy "measurement_services_read_only" on public.measurement_services for select
   using (public.current_role() in ('diretoria'));
+
+-- SUPPLIERS: admin/gestor/gestor_contratos escrevem; diretoria e portaria só leem.
+create policy "suppliers_write" on public.suppliers for all
+  using (public.current_role() in ('admin','gestor','gestor_contratos'))
+  with check (public.current_role() in ('admin','gestor','gestor_contratos'));
+create policy "suppliers_read_only" on public.suppliers for select
+  using (public.current_role() in ('diretoria','portaria'));
 
 -- Grants padrão do Supabase (RLS acima é quem realmente restringe as linhas)
 grant usage on schema public to authenticated;
