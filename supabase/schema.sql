@@ -137,6 +137,7 @@ create table public.budgets (
   status text default 'rascunho',
   sent_at date,
   responded_at date,
+  attachments jsonb default '[]'::jsonb,
   created_at timestamptz default now()
 );
 
@@ -325,3 +326,20 @@ end;
 $$;
 
 grant execute on function public.register_receipt(uuid, numeric, text, text, text) to authenticated;
+
+-- ==========================================
+-- STORAGE: anexos de orçamento (PDF)
+-- Bucket privado — acesso só via URL assinada gerada pelo backend/JS.
+-- ==========================================
+insert into storage.buckets (id, name, public)
+values ('budget-attachments', 'budget-attachments', false)
+on conflict (id) do nothing;
+
+create policy "budget_attachments_write" on storage.objects for insert
+  with check (bucket_id = 'budget-attachments' and public.current_role() in ('admin','gestor','gestor_orcamentos'));
+
+create policy "budget_attachments_read" on storage.objects for select
+  using (bucket_id = 'budget-attachments' and public.current_role() in ('admin','gestor','gestor_orcamentos','diretoria','financeiro'));
+
+create policy "budget_attachments_delete" on storage.objects for delete
+  using (bucket_id = 'budget-attachments' and public.current_role() in ('admin','gestor','gestor_orcamentos'));

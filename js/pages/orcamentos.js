@@ -190,10 +190,10 @@ function openBudgetDetail(id) {
           <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:8px;">Anexos e Versões (PDF)</div>
           <div style="display:flex;flex-direction:column;gap:8px;">
             ${b.attachments.map(att => `
-              <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:6px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:6px;cursor:pointer;" onclick="openBudgetAttachment('${(att.path || '').replace(/'/g, "\\'")}')">
                 <div style="display:flex;align-items:center;gap:8px;">
                   <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--danger);"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                  <span style="font-size:13px;font-weight:600;">${att.name}</span>
+                  <span style="font-size:13px;font-weight:600;color:var(--primary-800);text-decoration:underline;">${att.name}</span>
                 </div>
                 <div style="font-size:11px;color:var(--text-faint);">${fmt.date(att.date)}</div>
               </div>
@@ -201,10 +201,10 @@ function openBudgetDetail(id) {
           </div>
         </div>
       ` : ''}
-      
+
       <div style="margin-bottom:16px;">
         <input type="file" id="b-upload-pdf" accept=".pdf" style="display:none;" onchange="handleBudgetUpload('${b.id}', this)">
-        <button class="btn btn-sm btn-outline" onclick="document.getElementById('b-upload-pdf').click()">
+        <button class="btn btn-sm btn-outline" id="b-upload-btn" onclick="document.getElementById('b-upload-pdf').click()">
           <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
           Anexar Versão em PDF
         </button>
@@ -220,22 +220,38 @@ function openBudgetDetail(id) {
   });
 }
 
-window.handleBudgetUpload = function(id, input) {
+window.handleBudgetUpload = async function(id, input) {
   if (!input.files || !input.files[0]) return;
   const file = input.files[0];
   const b = Store.getById('budgets', id);
   if (!b) return;
-  const att = b.attachments || [];
-  att.push({
-    name: file.name,
-    date: new Date().toISOString()
-  });
+
+  const btn = document.getElementById('b-upload-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
+
+  const path = `${id}/${Date.now()}_${file.name}`;
+  const { error: uploadError } = await sb.storage.from('budget-attachments').upload(path, file);
+
+  if (uploadError) {
+    Toast.error('Erro ao anexar arquivo', uploadError.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Anexar Versão em PDF'; }
+    return;
+  }
+
+  const att = [...(b.attachments || []), { name: file.name, path, date: new Date().toISOString() }];
   Store.update('budgets', id, { attachments: att });
   Toast.success('PDF anexado!', 'O arquivo foi salvo no histórico do orçamento.');
-  
+
   const modal = input.closest('.modal-overlay');
   if (modal) modal.remove();
   openBudgetDetail(id);
+};
+
+window.openBudgetAttachment = async function(path) {
+  if (!path) { Toast.error('Arquivo indisponível', 'Esse anexo foi salvo antes do upload real — peça pra anexar de novo.'); return; }
+  const { data, error } = await sb.storage.from('budget-attachments').createSignedUrl(path, 3600);
+  if (error) { Toast.error('Erro ao abrir arquivo', error.message); return; }
+  window.open(data.signedUrl, '_blank');
 };
 
 function openNewBudgetModal() {
