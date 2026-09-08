@@ -61,7 +61,7 @@ function renderMedicoes() {
       <div class="table-wrapper">
         <table id="medic-table">
           <thead>
-            <tr><th>#</th><th>OBRA</th><th>PERÍODO</th><th>BRUTO (A)</th><th>LÍQUIDO</th><th>APROVADO</th><th>VENCIMENTO</th><th>PAGO EM</th><th>STATUS</th><th></th></tr>
+            <tr><th>#</th><th>OBRA</th><th>PERÍODO</th><th>BRUTO</th><th>LÍQUIDO</th><th>APROVADO</th><th>VENCIMENTO</th><th>PAGO EM</th><th>STATUS</th><th></th></tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -136,19 +136,19 @@ function measurementBreakdownFields(prefix, m = {}) {
       <input class="form-control" id="${prefix}-material" type="number" placeholder="0" value="${m.materialValue || ''}" oninput="computeAndRenderMedSummary('${prefix}')">
     </div>
     <div class="form-group">
-      <label class="form-label">(B) Desconto Faturamento Direto (R$)</label>
+      <label class="form-label">Desconto Faturamento Direto (R$)</label>
       <input class="form-control" id="${prefix}-discount" type="number" placeholder="0" value="${m.directBillingDiscount || ''}" oninput="computeAndRenderMedSummary('${prefix}')">
     </div>
     <div class="form-group">
-      <label class="form-label">(C) Caução / Permuta (R$)</label>
+      <label class="form-label">Caução / Permuta (R$)</label>
       <input class="form-control" id="${prefix}-caution" type="number" placeholder="0" value="${m.cautionValue || ''}" oninput="computeAndRenderMedSummary('${prefix}')">
     </div>
     <div class="form-group">
-      <label class="form-label">(D) INSS (R$)</label>
+      <label class="form-label">INSS (R$)</label>
       <input class="form-control" id="${prefix}-inss" type="number" placeholder="0" value="${m.inssValue || ''}" oninput="computeAndRenderMedSummary('${prefix}')">
     </div>
     <div class="form-group">
-      <label class="form-label">(D) ISS (R$)</label>
+      <label class="form-label">ISS (R$)</label>
       <input class="form-control" id="${prefix}-iss" type="number" placeholder="0" value="${m.issValue || ''}" oninput="computeAndRenderMedSummary('${prefix}')">
     </div>
     <div class="form-group form-col-span-2">
@@ -176,15 +176,15 @@ function renderMedSummaryHTML(b) {
   return `
     ${medRow('Total Mão de Obra', b.labor)}
     ${medRow('Total Material', b.material)}
-    ${medRow('(A) Total da Medição Bruta', b.gross, { bold: true, border: true })}
-    ${medRow('(B) Desconto Faturamento Direto', b.discount, { border: true })}
-    ${medRow('(A)-(B) Subtotal', b.subtotal, { bold: true, border: true })}
-    ${medRow('(C) Caução / Permuta', b.caution, { border: true })}
-    ${medRow('(D) Impostos', null, { border: true, bold: true })}
+    ${medRow('Total da Medição Bruta', b.gross, { bold: true, border: true })}
+    ${medRow('Desconto Faturamento Direto', b.discount, { border: true })}
+    ${medRow('Subtotal', b.subtotal, { bold: true, border: true })}
+    ${medRow('Caução / Permuta', b.caution, { border: true })}
+    ${medRow('Impostos', null, { border: true, bold: true })}
     ${medRow('INSS', b.inss, { indent: true })}
     ${medRow('ISS', b.iss, { indent: true })}
     ${medRow('Total dos Impostos', b.totalTaxes, { indent: true, bold: true })}
-    ${medRow('((A)-(B))-(C)-(D) Total Líquido', b.net, { bold: true, border: true })}
+    ${medRow('Total Líquido', b.net, { bold: true, border: true })}
   `;
 }
 

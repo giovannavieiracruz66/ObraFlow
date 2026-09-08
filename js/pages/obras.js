@@ -410,7 +410,7 @@ function showProjectTab(tab, projectId) {
         </div>
         <div class="table-wrapper">
           <table>
-            <thead><tr><th>#</th><th>PERÍODO</th><th>DESCRIÇÃO</th><th>BRUTO (A)</th><th>LÍQUIDO</th><th>APROVADO</th><th>VENCIMENTO</th><th>PAGO EM</th><th>STATUS</th></tr></thead>
+            <thead><tr><th>#</th><th>PERÍODO</th><th>DESCRIÇÃO</th><th>BRUTO</th><th>LÍQUIDO</th><th>APROVADO</th><th>VENCIMENTO</th><th>PAGO EM</th><th>STATUS</th></tr></thead>
             <tbody>
               ${fin.measurements.length ? fin.measurements.map(m => {
                 const b = getMeasurementBreakdown(m);
