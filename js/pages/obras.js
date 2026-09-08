@@ -512,7 +512,7 @@ function saveProjectNotes(id, notes) {
 // === MODALS ===
 function openNewProjectModal(prefill = {}) {
   const clients = Store.getList('clients');
-  const responsibles = ['Carlos Henrique', 'Diego Almeida', 'Fernanda Costa'];
+  const responsibles = [...new Set(Store.getList('projects').map(p => p.responsible).filter(Boolean))].sort();
 
   const { close } = Modal.create({
     title: 'Nova Obra',
@@ -532,9 +532,10 @@ function openNewProjectModal(prefill = {}) {
         </div>
         <div class="form-group">
           <label class="form-label">Responsável</label>
-          <select class="form-control" id="pj-responsible">
-            ${responsibles.map(r => `<option>${r}</option>`).join('')}
-          </select>
+          <input class="form-control" id="pj-responsible" list="pj-responsible-list" placeholder="Nome do responsável">
+          <datalist id="pj-responsible-list">
+            ${responsibles.map(r => `<option value="${r}">`).join('')}
+          </datalist>
         </div>
         <div class="form-group">
           <label class="form-label">Categoria / Tipo</label>
@@ -626,7 +627,7 @@ function openEditProjectModal(id) {
   const p = Store.getById('projects', id);
   if (!p) return;
   const clients = Store.getList('clients');
-  const responsibles = ['Carlos Henrique', 'Diego Almeida', 'Fernanda Costa'];
+  const responsibles = [...new Set(Store.getList('projects').map(pr => pr.responsible).filter(Boolean))].sort();
 
   const { close } = Modal.create({
     title: 'Editar Obra',
@@ -645,9 +646,10 @@ function openEditProjectModal(id) {
         </div>
         <div class="form-group">
           <label class="form-label">Responsável</label>
-          <select class="form-control" id="epj-responsible">
-            ${responsibles.map(r => `<option ${p.responsible===r?'selected':''}>${r}</option>`).join('')}
-          </select>
+          <input class="form-control" id="epj-responsible" list="epj-responsible-list" value="${p.responsible || ''}" placeholder="Nome do responsável">
+          <datalist id="epj-responsible-list">
+            ${responsibles.map(r => `<option value="${r}">`).join('')}
+          </datalist>
         </div>
         <div class="form-group">
           <label class="form-label">Status</label>

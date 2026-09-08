@@ -428,7 +428,7 @@ function convertBudgetToProject(budgetId) {
       const project = Store.add('projects', {
         name: b.projectName,
         clientId: b.clientId,
-        responsible: 'Carlos Henrique',
+        responsible: Store.getCurrentUserLabel(),
         category: 'Outros',
         status: 'aprovado',
         address: '',
