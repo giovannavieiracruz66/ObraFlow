@@ -5,7 +5,7 @@
 let obrasFilter = { status: '', responsible: '', search: '', page: 1 };
 
 function renderObras() {
-  const projects = Store.getList('projects').filter(p => p.status !== 'orcamento');
+  const projects = Store.getList('projects');
   const clients = Store.getList('clients');
   const getClientName = id => clients.find(c => c.id === id)?.name || '—';
   const responsibles = [...new Set(projects.map(p => p.responsible))].sort();
@@ -44,6 +44,7 @@ function renderObras() {
       </div>
       <select class="filter-select" onchange="obrasFilter.status=this.value;obrasFilter.page=1;renderObrasContent()">
         <option value="">Todos os status</option>
+        <option value="orcamento" ${obrasFilter.status==='orcamento'?'selected':''}>Orçamento</option>
         <option value="aprovado" ${obrasFilter.status==='aprovado'?'selected':''}>Aprovado</option>
         <option value="programada" ${obrasFilter.status==='programada'?'selected':''}>Programada</option>
         <option value="em_andamento" ${obrasFilter.status==='em_andamento'?'selected':''}>Em Andamento</option>
@@ -77,10 +78,7 @@ function setObrasView(view) {
 }
 
 function renderObrasContent() {
-  // "Orçamento" não é mais um status de obra ativa — essa fase agora vive
-  // só na tela de Orçamentos. Uma obra marcada assim some daqui (fica
-  // guardada no banco, só não aparece na listagem).
-  const projects = Store.getList('projects').filter(p => p.status !== 'orcamento');
+  const projects = Store.getList('projects');
   const clients = Store.getList('clients');
   const getClientName = id => clients.find(c => c.id === id)?.name || '—';
 
