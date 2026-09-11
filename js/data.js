@@ -584,6 +584,15 @@ const MONTHLY_REVENUE = [
 ];
 
 // Formatadores
+// Dados da sua empresa — aparecem no cabeçalho dos PDFs (Orçamento e
+// Medição). Edite os valores abaixo pra atualizar em todos os documentos.
+const COMPANY_INFO = {
+  name: '',      // Ex: 'Construtora Exemplo Ltda'
+  cnpj: '',      // Ex: '12.345.678/0001-90'
+  address: '',   // Ex: 'Rua das Obras, 100 - São Paulo/SP'
+  contact: ''    // Ex: '(11) 99999-9999 • contato@empresa.com.br'
+};
+
 const fmt = {
   currency: (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0),
   currencyFull: (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0),

@@ -274,25 +274,39 @@ function printBudgetPDF(budgetId) {
         <meta charset="UTF-8">
         <title>Orçamento ${b.number}</title>
         <style>
-          body { font-family: Arial, Helvetica, sans-serif; padding: 48px; color: #1a1a1a; }
-          h1 { font-size: 22px; margin: 0 0 4px; }
-          .muted { color: #666; font-size: 13px; margin-bottom: 2px; }
-          .header-row { display:flex; justify-content:space-between; margin-bottom: 24px; padding-bottom:16px; border-bottom: 2px solid #111; }
+          body { font-family: Arial, Helvetica, sans-serif; padding: 48px; color: #1a1a1a; font-size: 11px; }
+          h1 { font-size: 18px; margin: 0 0 4px; }
+          .muted { color: #666; font-size: 11px; margin-bottom: 2px; }
+          .company-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 16px; }
+          .company-name { font-size: 13px; font-weight: 800; }
+          .company-meta { font-size: 10px; color: #666; margin-top: 2px; line-height: 1.5; }
+          .header-row { display:flex; justify-content:space-between; margin-bottom: 20px; padding-bottom:14px; border-bottom: 2px solid #111; }
           table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-          th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #ddd; font-size: 13px; }
-          th { background: #f5f5f5; text-transform: uppercase; font-size: 11px; letter-spacing: .04em; }
+          th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #ddd; font-size: 11px; }
+          th { background: #f5f5f5; text-transform: uppercase; font-size: 10px; letter-spacing: .04em; }
           .sub-row td:first-child { padding-left: 28px; color: #666; }
-          .info-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap: 12px 24px; margin-bottom: 20px; }
-          .info-grid .label { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: #888; margin-bottom: 2px; }
-          .info-grid .value { font-size: 13px; font-weight: 600; }
-          .totals { margin-top: 24px; margin-left: auto; width: 280px; }
-          .totals div { display:flex; justify-content:space-between; padding: 4px 0; font-size: 13px; }
-          .totals .final { font-size: 18px; font-weight: bold; border-top: 2px solid #111; margin-top: 6px; padding-top: 8px; }
-          .notes { margin-top: 32px; font-size: 12px; color: #555; }
+          .info-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap: 10px 24px; margin-bottom: 18px; }
+          .info-grid .label { font-size: 9px; text-transform: uppercase; letter-spacing: .04em; color: #888; margin-bottom: 2px; }
+          .info-grid .value { font-size: 11px; font-weight: 600; }
+          .totals { margin-top: 20px; margin-left: auto; width: 280px; }
+          .totals div { display:flex; justify-content:space-between; padding: 4px 0; font-size: 11px; }
+          .totals .final { font-size: 15px; font-weight: bold; border-top: 2px solid #111; margin-top: 6px; padding-top: 8px; }
+          .notes { margin-top: 28px; font-size: 11px; color: #555; }
           @media print { body { padding: 24px; } }
         </style>
       </head>
       <body>
+        <div class="company-header">
+          <div>
+            <div class="company-name">${COMPANY_INFO.name}</div>
+            <div class="company-meta">
+              ${COMPANY_INFO.cnpj ? `CNPJ: ${COMPANY_INFO.cnpj}<br>` : ''}
+              ${COMPANY_INFO.address ? `${COMPANY_INFO.address}<br>` : ''}
+              ${COMPANY_INFO.contact || ''}
+            </div>
+          </div>
+        </div>
+
         <div class="header-row">
           <div>
             <h1>Orçamento ${b.number}</h1>
@@ -319,7 +333,7 @@ function printBudgetPDF(budgetId) {
         </div>
 
         <table>
-          <thead><tr><th>Serviço</th><th>Qtd.</th><th>Valor do Produto</th><th>Valor Total</th></tr></thead>
+          <thead><tr><th>Serviço</th><th>Qtd.</th><th>Valor Unitário</th><th>Valor Total</th></tr></thead>
           <tbody>
             ${b.serviceItems && b.serviceItems.length ? b.serviceItems.map(it => `
               <tr><td>${it.name}</td><td></td><td></td><td>${fmt.currency(it.value)}</td></tr>

@@ -530,25 +530,37 @@ function printMeasurementPDF(measurementId) {
         <meta charset="UTF-8">
         <title>Medição ${m.number} - ${project?.name || ''}</title>
         <style>
-          body { font-family: Arial, Helvetica, sans-serif; padding: 48px; color: #1a1a1a; }
-          h1 { font-size: 22px; margin: 0 0 4px; }
-          .muted { color: #666; font-size: 13px; margin-bottom: 2px; }
-          .header-row { display:flex; justify-content:space-between; margin-bottom: 24px; padding-bottom:16px; border-bottom: 2px solid #111; }
+          body { font-family: Arial, Helvetica, sans-serif; padding: 48px; color: #1a1a1a; font-size: 11px; }
+          h1 { font-size: 18px; margin: 0 0 4px; }
+          .muted { color: #666; font-size: 11px; margin-bottom: 2px; }
+          .company-header { margin-bottom: 16px; }
+          .company-name { font-size: 13px; font-weight: 800; }
+          .company-meta { font-size: 10px; color: #666; margin-top: 2px; line-height: 1.5; }
+          .header-row { display:flex; justify-content:space-between; margin-bottom: 20px; padding-bottom:14px; border-bottom: 2px solid #111; }
           table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-          th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #ddd; font-size: 13px; }
-          th { background: #f5f5f5; text-transform: uppercase; font-size: 11px; letter-spacing: .04em; }
-          .breakdown { margin-top: 24px; margin-left: auto; width: 320px; }
-          .breakdown div { display:flex; justify-content:space-between; padding: 4px 0; font-size: 13px; }
+          th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #ddd; font-size: 11px; }
+          th { background: #f5f5f5; text-transform: uppercase; font-size: 10px; letter-spacing: .04em; }
+          .breakdown { margin-top: 20px; margin-left: auto; width: 320px; }
+          .breakdown div { display:flex; justify-content:space-between; padding: 4px 0; font-size: 11px; }
           .breakdown .bold { font-weight: bold; }
           .breakdown .border { border-top: 1px solid #ddd; margin-top: 6px; padding-top: 8px; }
-          .breakdown .final { font-size: 18px; font-weight: bold; border-top: 2px solid #111; margin-top: 6px; padding-top: 8px; }
+          .breakdown .final { font-size: 15px; font-weight: bold; border-top: 2px solid #111; margin-top: 6px; padding-top: 8px; }
           .approval { margin-top: 60px; display: flex; justify-content: space-between; }
-          .approval div { width: 45%; border-top: 1px solid #444; text-align: center; padding-top: 6px; font-size: 12px; color: #555; }
-          .notes { margin-top: 32px; font-size: 12px; color: #555; }
+          .approval div { width: 45%; border-top: 1px solid #444; text-align: center; padding-top: 6px; font-size: 11px; color: #555; }
+          .notes { margin-top: 28px; font-size: 11px; color: #555; }
           @media print { body { padding: 24px; } }
         </style>
       </head>
       <body>
+        <div class="company-header">
+          <div class="company-name">${COMPANY_INFO.name}</div>
+          <div class="company-meta">
+            ${COMPANY_INFO.cnpj ? `CNPJ: ${COMPANY_INFO.cnpj}<br>` : ''}
+            ${COMPANY_INFO.address ? `${COMPANY_INFO.address}<br>` : ''}
+            ${COMPANY_INFO.contact || ''}
+          </div>
+        </div>
+
         <div class="header-row">
           <div>
             <h1>Medição #${m.number}</h1>
