@@ -397,7 +397,7 @@ function serviceSubItemRow(sub = {}) {
   return `
     <div class="svc-subitem-row" style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
       <input class="form-control svc-subname" placeholder="Nome do sub-item (ex: Escavação)" value="${sub.name ? String(sub.name).replace(/"/g, '&quot;') : ''}" style="flex:2;font-size:13px;min-width:0;">
-      <input class="form-control svc-subqty" type="number" placeholder="Qtd." value="${sub.quantity || ''}" style="flex:1;font-size:13px;min-width:0;">
+      <input class="form-control svc-subqty" type="number" placeholder="Qtd." value="${sub.quantity || ''}" style="flex:1;font-size:13px;min-width:0;" oninput="recalcServiceItemValue(this.closest('.service-item-block'))">
       <input class="form-control svc-submaterial" type="number" placeholder="Material (R$)" value="${sub.materialValue || ''}" style="flex:1;font-size:13px;min-width:0;" oninput="recalcServiceItemValue(this.closest('.service-item-block'))">
       <input class="form-control svc-sublabor" type="number" placeholder="Mão de Obra (R$)" value="${sub.laborValue || ''}" style="flex:1;font-size:13px;min-width:0;" oninput="recalcServiceItemValue(this.closest('.service-item-block'))">
       <input class="form-control svc-subtotal" type="number" value="${total || ''}" placeholder="Total" readonly style="flex:1;font-size:13px;min-width:0;background:var(--gray-50);">
@@ -464,9 +464,10 @@ function removeSubItemRow(btn) {
 function recalcServiceItemValue(block) {
   let grandTotal = 0;
   block.querySelectorAll('.svc-subitem-row').forEach(row => {
+    const qty = parseFloat(row.querySelector('.svc-subqty').value) || 1;
     const material = parseFloat(row.querySelector('.svc-submaterial').value) || 0;
     const labor = parseFloat(row.querySelector('.svc-sublabor').value) || 0;
-    const subTotal = material + labor;
+    const subTotal = qty * (material + labor);
     const totalField = row.querySelector('.svc-subtotal');
     if (totalField) totalField.value = subTotal || '';
     grandTotal += subTotal;
@@ -483,14 +484,16 @@ function readServiceItems(prefix) {
       const name = block.querySelector('.svc-name').value.trim();
       const subItems = [...block.querySelectorAll('.svc-subitem-row')]
         .map(row => {
+          const quantity = parseFloat(row.querySelector('.svc-subqty').value) || 0;
           const materialValue = parseFloat(row.querySelector('.svc-submaterial').value) || 0;
           const laborValue = parseFloat(row.querySelector('.svc-sublabor').value) || 0;
+          const qty = quantity || 1;
           return {
             name: row.querySelector('.svc-subname').value.trim(),
-            quantity: parseFloat(row.querySelector('.svc-subqty').value) || 0,
+            quantity,
             materialValue,
             laborValue,
-            value: materialValue + laborValue
+            value: qty * (materialValue + laborValue)
           };
         })
         .filter(s => s.name);
