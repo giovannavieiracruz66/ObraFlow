@@ -154,6 +154,7 @@ function openBudgetDetail(id) {
     body: `
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;margin-bottom:20px;">
         ${[
+          ['Empresa Emissora', getCompany(b.companyId).name],
           ['Cliente', client?.name || '—'],
           ['Obra', b.projectName],
           ['Nº da Proposta', b.number],
@@ -264,6 +265,7 @@ function printBudgetPDF(budgetId) {
   const b = Store.getById('budgets', budgetId);
   if (!b) return;
   const client = Store.getById('clients', b.clientId);
+  const company = getCompany(b.companyId);
 
   const win = window.open('', '_blank');
   if (!win) { Toast.error('Bloqueado pelo navegador', 'Permita pop-ups para emitir o PDF.'); return; }
@@ -277,17 +279,17 @@ function printBudgetPDF(budgetId) {
           body { font-family: Arial, Helvetica, sans-serif; padding: 48px; color: #1a1a1a; font-size: 11px; }
           h1 { font-size: 18px; margin: 0 0 4px; }
           .muted { color: #666; font-size: 11px; margin-bottom: 2px; }
-          .company-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 16px; }
-          .company-name { font-size: 13px; font-weight: 800; }
-          .company-meta { font-size: 10px; color: #666; margin-top: 2px; line-height: 1.5; }
+          .company-box { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 10px; }
+          .company-box td { border: 1px solid #333; padding: 4px 8px; }
+          .company-box .k { font-weight: bold; white-space: nowrap; width: 1%; }
           .header-row { display:flex; justify-content:space-between; margin-bottom: 20px; padding-bottom:14px; border-bottom: 2px solid #111; }
-          table { width: 100%; border-collapse: collapse; margin-top: 16px; table-layout: fixed; }
-          th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd; font-size: 11px; overflow-wrap: break-word; }
-          th { background: #f5f5f5; text-transform: uppercase; font-size: 10px; letter-spacing: .04em; }
-          th:nth-child(1), td:nth-child(1) { width: 48%; }
-          th:nth-child(2), td:nth-child(2) { width: 12%; text-align: right; }
-          th:nth-child(3), td:nth-child(3) { width: 20%; text-align: right; }
-          th:nth-child(4), td:nth-child(4) { width: 20%; text-align: right; }
+          .items-table { width: 100%; border-collapse: collapse; margin-top: 16px; table-layout: fixed; }
+          .items-table th, .items-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd; font-size: 11px; overflow-wrap: break-word; }
+          .items-table th { background: #f5f5f5; text-transform: uppercase; font-size: 10px; letter-spacing: .04em; }
+          .items-table th:nth-child(1), .items-table td:nth-child(1) { width: 48%; }
+          .items-table th:nth-child(2), .items-table td:nth-child(2) { width: 12%; text-align: right; }
+          .items-table th:nth-child(3), .items-table td:nth-child(3) { width: 20%; text-align: right; }
+          .items-table th:nth-child(4), .items-table td:nth-child(4) { width: 20%; text-align: right; }
           .sub-row td:first-child { padding-left: 28px; color: #666; }
           .info-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap: 10px 24px; margin-bottom: 18px; }
           .info-grid .label { font-size: 9px; text-transform: uppercase; letter-spacing: .04em; color: #888; margin-bottom: 2px; }
@@ -300,16 +302,21 @@ function printBudgetPDF(budgetId) {
         </style>
       </head>
       <body>
-        <div class="company-header">
-          <div>
-            <div class="company-name">${COMPANY_INFO.name}</div>
-            <div class="company-meta">
-              ${COMPANY_INFO.cnpj ? `CNPJ: ${COMPANY_INFO.cnpj}<br>` : ''}
-              ${COMPANY_INFO.address ? `${COMPANY_INFO.address}<br>` : ''}
-              ${COMPANY_INFO.contact || ''}
-            </div>
-          </div>
-        </div>
+        <table class="company-box">
+          <tr><td class="k">RAZÃO SOCIAL:</td><td colspan="3">${company.name}</td></tr>
+          <tr>
+            <td class="k">CNPJ:</td><td>${company.cnpj}</td>
+            ${company.ie ? `<td class="k">I.E.:</td><td>${company.ie}</td>` : `<td colspan="2"></td>`}
+          </tr>
+          <tr><td class="k">END:</td><td colspan="3">${company.address}</td></tr>
+          <tr><td class="k">CEP:</td><td colspan="3">${company.cep}</td></tr>
+          ${company.contacts.map(c => `
+            <tr>
+              <td class="k">FONE:</td><td>${c.phone}</td>
+              <td colspan="2">${c.email || ''}</td>
+            </tr>
+          `).join('')}
+        </table>
 
         <div class="header-row">
           <div>
@@ -336,7 +343,7 @@ function printBudgetPDF(budgetId) {
           ].map(([l, v]) => `<div><div class="label">${l}</div><div class="value">${v}</div></div>`).join('')}
         </div>
 
-        <table>
+        <table class="items-table">
           <thead><tr><th>Serviço</th><th>Qtd.</th><th>Valor Unitário</th><th>Valor Total</th></tr></thead>
           <tbody>
             ${b.serviceItems && b.serviceItems.length ? b.serviceItems.map(it => `
@@ -604,6 +611,12 @@ function openNewBudgetModal() {
           <label class="form-label">Nome do Projeto *</label>
           <input class="form-control" id="b-projname" placeholder="Ex: Residência Alto Padrão">
         </div>
+        <div class="form-group form-col-span-2">
+          <label class="form-label">Empresa Emissora *</label>
+          <select class="form-control" id="b-company">
+            ${COMPANIES.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+          </select>
+        </div>
         <div class="form-group">
           <label class="form-label">Local (Endereço)</label>
           <input class="form-control" id="b-address" placeholder="Rua, número">
@@ -692,6 +705,7 @@ function openNewBudgetModal() {
       Store.add('budgets', {
         number: document.getElementById('b-num').value,
         clientId, projectName: proj,
+        companyId: document.getElementById('b-company').value,
         address: document.getElementById('b-address').value.trim() || null,
         city: document.getElementById('b-city').value.trim() || null,
         responsible: document.getElementById('b-responsible').value.trim() || null,
@@ -738,6 +752,12 @@ function openEditBudgetModal(id) {
         <div class="form-group form-col-span-2">
           <label class="form-label">Nome do Projeto</label>
           <input class="form-control" id="eb-projname" value="${b.projectName}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Empresa Emissora</label>
+          <select class="form-control" id="eb-company">
+            ${COMPANIES.map(c => `<option value="${c.id}" ${b.companyId===c.id?'selected':''}>${c.name}</option>`).join('')}
+          </select>
         </div>
         <div class="form-group">
           <label class="form-label">Status</label>
@@ -817,6 +837,7 @@ function openEditBudgetModal(id) {
       const serviceItems = readServiceItems('eb');
       Store.update('budgets', id, {
         projectName: document.getElementById('eb-projname').value,
+        companyId: document.getElementById('eb-company').value,
         status: document.getElementById('eb-status').value,
         address: document.getElementById('eb-address').value.trim() || null,
         city: document.getElementById('eb-city').value.trim() || null,
@@ -868,6 +889,7 @@ function convertBudgetToProject(budgetId) {
         costValue: b.materials + b.labor,
         paymentMethod: b.paymentMethod || '',
         proposalNumber: b.number,
+        companyId: b.companyId,
         contactEmail: b.contactEmail || client?.email || null,
         baseDate: b.baseDate || b.createdAt,
         proposalValidUntil: b.validUntil,

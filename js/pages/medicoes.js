@@ -515,6 +515,7 @@ function printMeasurementPDF(measurementId) {
   if (!m) return;
   const project = Store.getById('projects', m.projectId);
   const client = project ? Store.getById('clients', project.clientId) : null;
+  const company = getCompany(project?.companyId);
   const b = getMeasurementBreakdown(m);
 
   const allocations = Store.getList('measurement_services')
@@ -533,16 +534,16 @@ function printMeasurementPDF(measurementId) {
           body { font-family: Arial, Helvetica, sans-serif; padding: 48px; color: #1a1a1a; font-size: 11px; }
           h1 { font-size: 18px; margin: 0 0 4px; }
           .muted { color: #666; font-size: 11px; margin-bottom: 2px; }
-          .company-header { margin-bottom: 16px; }
-          .company-name { font-size: 13px; font-weight: 800; }
-          .company-meta { font-size: 10px; color: #666; margin-top: 2px; line-height: 1.5; }
+          .company-box { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 10px; }
+          .company-box td { border: 1px solid #333; padding: 4px 8px; }
+          .company-box .k { font-weight: bold; white-space: nowrap; width: 1%; }
           .header-row { display:flex; justify-content:space-between; margin-bottom: 20px; padding-bottom:14px; border-bottom: 2px solid #111; }
-          table { width: 100%; border-collapse: collapse; margin-top: 16px; table-layout: fixed; }
-          th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd; font-size: 11px; overflow-wrap: break-word; }
-          th { background: #f5f5f5; text-transform: uppercase; font-size: 10px; letter-spacing: .04em; }
-          th:nth-child(1), td:nth-child(1) { width: 55%; }
-          th:nth-child(2), td:nth-child(2) { width: 25%; text-align: right; }
-          th:nth-child(3), td:nth-child(3) { width: 20%; text-align: right; }
+          .items-table { width: 100%; border-collapse: collapse; margin-top: 16px; table-layout: fixed; }
+          .items-table th, .items-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd; font-size: 11px; overflow-wrap: break-word; }
+          .items-table th { background: #f5f5f5; text-transform: uppercase; font-size: 10px; letter-spacing: .04em; }
+          .items-table th:nth-child(1), .items-table td:nth-child(1) { width: 55%; }
+          .items-table th:nth-child(2), .items-table td:nth-child(2) { width: 25%; text-align: right; }
+          .items-table th:nth-child(3), .items-table td:nth-child(3) { width: 20%; text-align: right; }
           .breakdown { margin-top: 20px; margin-left: auto; width: 320px; }
           .breakdown div { display:flex; justify-content:space-between; padding: 4px 0; font-size: 11px; }
           .breakdown .bold { font-weight: bold; }
@@ -555,14 +556,21 @@ function printMeasurementPDF(measurementId) {
         </style>
       </head>
       <body>
-        <div class="company-header">
-          <div class="company-name">${COMPANY_INFO.name}</div>
-          <div class="company-meta">
-            ${COMPANY_INFO.cnpj ? `CNPJ: ${COMPANY_INFO.cnpj}<br>` : ''}
-            ${COMPANY_INFO.address ? `${COMPANY_INFO.address}<br>` : ''}
-            ${COMPANY_INFO.contact || ''}
-          </div>
-        </div>
+        <table class="company-box">
+          <tr><td class="k">RAZÃO SOCIAL:</td><td colspan="3">${company.name}</td></tr>
+          <tr>
+            <td class="k">CNPJ:</td><td>${company.cnpj}</td>
+            ${company.ie ? `<td class="k">I.E.:</td><td>${company.ie}</td>` : `<td colspan="2"></td>`}
+          </tr>
+          <tr><td class="k">END:</td><td colspan="3">${company.address}</td></tr>
+          <tr><td class="k">CEP:</td><td colspan="3">${company.cep}</td></tr>
+          ${company.contacts.map(c => `
+            <tr>
+              <td class="k">FONE:</td><td>${c.phone}</td>
+              <td colspan="2">${c.email || ''}</td>
+            </tr>
+          `).join('')}
+        </table>
 
         <div class="header-row">
           <div>
@@ -579,7 +587,7 @@ function printMeasurementPDF(measurementId) {
         ${m.description ? `<div class="muted" style="margin-top:8px;"><strong>Serviços realizados:</strong> ${m.description}</div>` : ''}
 
         ${allocations.length ? `
-          <table>
+          <table class="items-table">
             <thead><tr><th>Serviço</th><th>% Executado nesta Medição</th><th>Valor</th></tr></thead>
             <tbody>
               ${allocations.map(a => `<tr><td>${a.serviceName}</td><td>${a.percentage.toFixed(1)}%</td><td>${fmt.currency(a.value)}</td></tr>`).join('')}

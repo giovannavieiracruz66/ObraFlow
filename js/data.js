@@ -584,14 +584,39 @@ const MONTHLY_REVENUE = [
 ];
 
 // Formatadores
-// Dados da sua empresa — aparecem no cabeçalho dos PDFs (Orçamento e
-// Medição). Edite os valores abaixo pra atualizar em todos os documentos.
-const COMPANY_INFO = {
-  name: '',      // Ex: 'Construtora Exemplo Ltda'
-  cnpj: '',      // Ex: '12.345.678/0001-90'
-  address: '',   // Ex: 'Rua das Obras, 100 - São Paulo/SP'
-  contact: ''    // Ex: '(11) 99999-9999 • contato@empresa.com.br'
-};
+// Empresas emissoras — aparecem no cabeçalho dos PDFs (Orçamento e Medição).
+// Cada orçamento escolhe qual delas emite o documento. Pra adicionar/editar
+// uma empresa, mexa só nesta lista.
+const COMPANIES = [
+  {
+    id: 'pavloc',
+    name: 'PAVLOC LOCAÇÃO E CONSTRUÇÃO CIVIL LTDA',
+    cnpj: '32.234.110/0001-04',
+    ie: '195.029.874.111',
+    address: 'RODOVIA LUIZ CARLOS BRANDOLEZI, Nº (S/N), KM 2 - SALA 04',
+    cep: '15115-000 - BADY BASSITT-SP',
+    contacts: [
+      { phone: '(17) 9-9621-1526', email: 'diretoria1@pavloc.com.br' },
+      { phone: '(17) 9-99109-7964', email: 'engenharia2@pavloc.com.br' }
+    ]
+  },
+  {
+    id: 'alcimes',
+    name: 'ALCIMES CONSTRUTORA LTDA',
+    cnpj: '07.779.913/0001-05',
+    ie: '',
+    address: 'RODOVIA LUIZ CARLOS BRANDOLEZI, Nº (S/N), KM 2 - SALA 05',
+    cep: '15115-000 - BADY BASSITT-SP',
+    contacts: [
+      { phone: '(17) 9-9621-1526', email: '' },
+      { phone: '(17) 9-99109-7964', email: '' }
+    ]
+  }
+];
+
+function getCompany(id) {
+  return COMPANIES.find(c => c.id === id) || COMPANIES[0];
+}
 
 const fmt = {
   currency: (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0),

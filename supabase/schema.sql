@@ -96,6 +96,7 @@ create table public.projects (
   base_date date,
   proposal_valid_until date,
   execution_deadline text,
+  company_id text,
   created_at timestamptz default now(),
   updated_at timestamptz
 );
@@ -140,6 +141,7 @@ create table public.budgets (
   payment_method text,
   start_availability date,
   execution_deadline text,
+  company_id text,
   services text,
   materials numeric,
   labor numeric,
