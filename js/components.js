@@ -194,18 +194,32 @@ function getMeasurementBreakdown(m) {
 }
 
 // === SERVIÇOS DA OBRA (progresso acumulado por medição) ===
-// Cada linha de project_services tem um valor orçado; cada medição pode
-// alocar quanto (%) daquele serviço foi executado NESSA medição
-// (measurement_services). Aqui somamos tudo pra saber o acumulado real.
+// Cada linha "folha" de project_services (sem sub-itens) tem um valor
+// orçado; cada medição pode alocar quanto (%) daquela folha foi
+// executado NESSA medição (measurement_services). Quando um serviço
+// tem sub-itens, seu progresso é o somatório dos sub-itens (rollup) —
+// a alocação em si só acontece nas folhas.
 function getProjectServicesProgress(projectId) {
-  const services = Store.getList('project_services').filter(s => s.projectId === projectId);
+  const all = Store.getList('project_services').filter(s => s.projectId === projectId);
   const allocations = Store.getList('measurement_services');
 
-  return services.map(s => {
+  const computeLeaf = (s) => {
     const rows = allocations.filter(a => a.projectServiceId === s.id);
     const executedPct = Math.min(100, rows.reduce((sum, r) => sum + (r.percentage || 0), 0));
     const executedValue = (s.budgetedValue || 0) * executedPct / 100;
-    return { ...s, executedPct, executedValue };
+    return { ...s, executedPct, executedValue, subItems: [] };
+  };
+
+  const topLevel = all.filter(s => !s.parentId);
+
+  return topLevel.map(parent => {
+    const children = all.filter(s => s.parentId === parent.id).map(computeLeaf);
+    if (children.length) {
+      const executedValue = children.reduce((sum, c) => sum + c.executedValue, 0);
+      const executedPct = parent.budgetedValue > 0 ? Math.min(100, executedValue / parent.budgetedValue * 100) : 0;
+      return { ...parent, executedPct, executedValue, subItems: children };
+    }
+    return computeLeaf(parent);
   });
 }
 

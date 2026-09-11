@@ -205,6 +205,7 @@ create table public.notifications (
 create table public.project_services (
   id uuid primary key default gen_random_uuid(),
   project_id uuid references public.projects(id) on delete cascade,
+  parent_id uuid references public.project_services(id) on delete cascade,
   name text not null,
   budgeted_value numeric default 0,
   created_at timestamptz default now()

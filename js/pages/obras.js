@@ -441,6 +441,27 @@ function showProjectTab(tab, projectId) {
 
   if (tab === 'services') {
     const services = getProjectServicesProgress(projectId);
+
+    const renderServiceRow = (s, isSub = false) => `
+      <tr>
+        <td class="td-main" style="${isSub ? 'padding-left:32px;color:var(--text-muted);font-weight:500;' : ''}">${s.name}</td>
+        <td class="font-semibold">${fmt.currency(s.budgetedValue)}</td>
+        <td>
+          <div style="min-width:120px;">
+            <div class="progress-bar-wrap"><div class="progress-bar ${s.executedPct >= 100 ? 'green' : 'blue'}" style="width:${s.executedPct}%"></div></div>
+            <div style="font-size:10px;color:var(--text-faint);margin-top:2px;">${s.executedPct.toFixed(1)}%</div>
+          </div>
+        </td>
+        <td class="font-semibold" style="color:var(--primary-700);">${fmt.currency(s.executedValue)}</td>
+        <td>${canWrite() ? `<button class="btn btn-sm btn-ghost" style="color:var(--danger);" onclick="deleteProjectService('${s.id}','${projectId}')"><svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></button>` : ''}</td>
+      </tr>
+    `;
+
+    const rowsHtml = services.flatMap(s => [
+      renderServiceRow(s),
+      ...(s.subItems || []).map(sub => renderServiceRow(sub, true))
+    ]).join('');
+
     container.innerHTML = `
       <div class="card">
         <div class="card-header">
@@ -451,20 +472,7 @@ function showProjectTab(tab, projectId) {
           <table>
             <thead><tr><th>SERVIÇO</th><th>VALOR ORÇADO</th><th>PROGRESSO</th><th>VALOR EXECUTADO</th><th></th></tr></thead>
             <tbody>
-              ${services.length ? services.map(s => `
-                <tr>
-                  <td class="td-main">${s.name}</td>
-                  <td class="font-semibold">${fmt.currency(s.budgetedValue)}</td>
-                  <td>
-                    <div style="min-width:120px;">
-                      <div class="progress-bar-wrap"><div class="progress-bar ${s.executedPct >= 100 ? 'green' : 'blue'}" style="width:${s.executedPct}%"></div></div>
-                      <div style="font-size:10px;color:var(--text-faint);margin-top:2px;">${s.executedPct.toFixed(1)}%</div>
-                    </div>
-                  </td>
-                  <td class="font-semibold" style="color:var(--primary-700);">${fmt.currency(s.executedValue)}</td>
-                  <td>${canWrite() ? `<button class="btn btn-sm btn-ghost" style="color:var(--danger);" onclick="deleteProjectService('${s.id}','${projectId}')"><svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></button>` : ''}</td>
-                </tr>
-              `).join('') : '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhum serviço cadastrado. Adicione manualmente ou aprove um orçamento com itens.</td></tr>'}
+              ${services.length ? rowsHtml : '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhum serviço cadastrado. Adicione manualmente ou aprove um orçamento com itens.</td></tr>'}
             </tbody>
           </table>
         </div>

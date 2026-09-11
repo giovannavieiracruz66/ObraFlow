@@ -177,7 +177,10 @@ function openBudgetDetail(id) {
             <table>
               <thead><tr><th>SERVIÇO</th><th>VALOR</th></tr></thead>
               <tbody>
-                ${b.serviceItems.map(it => `<tr><td class="td-main">${it.name}</td><td class="font-semibold">${fmt.currency(it.value)}</td></tr>`).join('')}
+                ${b.serviceItems.map(it => `
+                  <tr><td class="td-main">${it.name}</td><td class="font-semibold">${fmt.currency(it.value)}</td></tr>
+                  ${(it.subItems || []).map(sub => `<tr><td style="padding-left:28px;color:var(--text-muted);">${sub.name}</td><td>${fmt.currency(sub.value)}</td></tr>`).join('')}
+                `).join('')}
               </tbody>
             </table>
           </div>
@@ -296,14 +299,33 @@ window.deleteBudgetAttachment = function(budgetId, path) {
 };
 
 // === ITENS DE SERVIÇO (orçamento) ===
-function serviceItemRow(it = {}) {
+function serviceSubItemRow(sub = {}) {
   return `
-    <div class="service-item-row" style="display:flex;gap:8px;margin-bottom:8px;align-items:center;">
-      <input class="form-control svc-name" placeholder="Nome do serviço (ex: Terraplanagem)" value="${it.name ? String(it.name).replace(/"/g, '&quot;') : ''}" style="flex:2;">
-      <input class="form-control svc-value" type="number" placeholder="Valor (R$)" value="${it.value || ''}" style="flex:1;">
-      <button type="button" class="btn btn-sm btn-ghost" style="color:var(--danger);flex-shrink:0;" onclick="this.closest('.service-item-row').remove()">
-        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+    <div class="svc-subitem-row" style="display:flex;gap:8px;margin-bottom:6px;align-items:center;">
+      <input class="form-control svc-subname" placeholder="Nome do sub-item" value="${sub.name ? String(sub.name).replace(/"/g, '&quot;') : ''}" style="flex:2;font-size:13px;">
+      <input class="form-control svc-subvalue" type="number" placeholder="Valor (R$)" value="${sub.value || ''}" style="flex:1;font-size:13px;" oninput="recalcServiceItemValue(this.closest('.service-item-block'))">
+      <button type="button" class="btn btn-sm btn-ghost" style="color:var(--danger);flex-shrink:0;" onclick="removeSubItemRow(this)">
+        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
       </button>
+    </div>
+  `;
+}
+
+function serviceItemBlock(it = {}) {
+  const subItems = it.subItems || [];
+  return `
+    <div class="service-item-block" style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;background:var(--surface);">
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input class="form-control svc-name" placeholder="Nome do serviço (ex: Terraplanagem)" value="${it.name ? String(it.name).replace(/"/g, '&quot;') : ''}" style="flex:2;">
+        <input class="form-control svc-value" type="number" placeholder="Valor (R$)" value="${it.value || ''}" style="flex:1;" ${subItems.length ? 'readonly' : ''}>
+        <button type="button" class="btn btn-sm btn-ghost" style="color:var(--danger);flex-shrink:0;" onclick="this.closest('.service-item-block').remove()">
+          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+        </button>
+      </div>
+      <div class="svc-subitems" style="margin-left:20px;margin-top:8px;">
+        ${subItems.map(sub => serviceSubItemRow(sub)).join('')}
+      </div>
+      <button type="button" class="btn btn-sm btn-ghost" style="margin-left:20px;margin-top:2px;font-size:12px;" onclick="addSubItemRow(this)">+ Sub-item</button>
     </div>
   `;
 }
@@ -312,9 +334,9 @@ function serviceItemsBuilder(prefix, items = []) {
   const rows = items.length ? items : [{}];
   return `
     <div class="form-group form-col-span-2">
-      <label class="form-label">Serviços (cada item vira uma linha de acompanhamento na obra)</label>
+      <label class="form-label">Serviços (cada item vira um serviço na obra; sub-itens detalham de onde vem o valor)</label>
       <div id="${prefix}-service-items">
-        ${rows.map(it => serviceItemRow(it)).join('')}
+        ${rows.map(it => serviceItemBlock(it)).join('')}
       </div>
       <button type="button" class="btn btn-sm btn-outline" style="margin-top:4px;" onclick="addServiceItemRow('${prefix}')">+ Adicionar Serviço</button>
     </div>
@@ -324,17 +346,46 @@ function serviceItemsBuilder(prefix, items = []) {
 function addServiceItemRow(prefix) {
   const container = document.getElementById(`${prefix}-service-items`);
   if (!container) return;
-  container.insertAdjacentHTML('beforeend', serviceItemRow());
+  container.insertAdjacentHTML('beforeend', serviceItemBlock());
+}
+
+function addSubItemRow(btn) {
+  const block = btn.closest('.service-item-block');
+  block.querySelector('.svc-subitems').insertAdjacentHTML('beforeend', serviceSubItemRow());
+  block.querySelector('.svc-value').readOnly = true;
+  recalcServiceItemValue(block);
+}
+
+function removeSubItemRow(btn) {
+  const block = btn.closest('.service-item-block');
+  btn.closest('.svc-subitem-row').remove();
+  const stillHasSubItems = !!block.querySelector('.svc-subitem-row');
+  block.querySelector('.svc-value').readOnly = stillHasSubItems;
+  if (stillHasSubItems) recalcServiceItemValue(block);
+}
+
+function recalcServiceItemValue(block) {
+  const total = [...block.querySelectorAll('.svc-subvalue')].reduce((sum, inp) => sum + (parseFloat(inp.value) || 0), 0);
+  const valueInput = block.querySelector('.svc-value');
+  if (valueInput.readOnly) valueInput.value = total || '';
 }
 
 function readServiceItems(prefix) {
   const container = document.getElementById(`${prefix}-service-items`);
   if (!container) return [];
-  return [...container.querySelectorAll('.service-item-row')]
-    .map(row => ({
-      name: row.querySelector('.svc-name').value.trim(),
-      value: parseFloat(row.querySelector('.svc-value').value) || 0
-    }))
+  return [...container.querySelectorAll('.service-item-block')]
+    .map(block => {
+      const name = block.querySelector('.svc-name').value.trim();
+      const subItems = [...block.querySelectorAll('.svc-subitem-row')]
+        .map(row => ({
+          name: row.querySelector('.svc-subname').value.trim(),
+          value: parseFloat(row.querySelector('.svc-subvalue').value) || 0
+        }))
+        .filter(s => s.name);
+      const ownValue = parseFloat(block.querySelector('.svc-value').value) || 0;
+      const value = subItems.length ? subItems.reduce((s, i) => s + i.value, 0) : ownValue;
+      return { name, value, subItems };
+    })
     .filter(it => it.name);
 }
 
@@ -550,10 +601,19 @@ function convertBudgetToProject(budgetId) {
       Store.update('budgets', budgetId, { status: 'aprovado' });
 
       (b.serviceItems || []).forEach(item => {
-        Store.add('project_services', {
+        const parent = Store.add('project_services', {
           projectId: project.id,
           name: item.name,
-          budgetedValue: item.value || 0
+          budgetedValue: item.value || 0,
+          parentId: null
+        });
+        (item.subItems || []).forEach(sub => {
+          Store.add('project_services', {
+            projectId: project.id,
+            name: sub.name,
+            budgetedValue: sub.value || 0,
+            parentId: parent.id
+          });
         });
       });
 

@@ -218,28 +218,44 @@ function renderMedServiceAlloc(prefix, projectId, measurementId = null) {
   const services = getProjectServicesProgress(projectId);
   if (!services.length) { container.innerHTML = ''; return; }
 
-  const rows = services.map(s => {
+  const withAllocState = (s) => {
     const ownAlloc = measurementId ? Store.getList('measurement_services').find(a => a.measurementId === measurementId && a.projectServiceId === s.id) : null;
     const ownPct = ownAlloc ? ownAlloc.percentage : 0;
     const baselinePct = Math.max(0, s.executedPct - ownPct);
     const maxAllowed = Math.max(0, 100 - baselinePct);
     return { ...s, ownPct, baselinePct, maxAllowed };
-  });
+  };
+
+  const leafInput = (s) => `
+    <div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+        <span style="font-weight:600;color:var(--text);">${s.name}</span>
+        <span style="color:var(--text-faint);">Já executado: ${s.baselinePct.toFixed(1)}% • Orçado: ${fmt.currency(s.budgetedValue)}</span>
+      </div>
+      <input class="form-control svc-alloc-pct" data-service-id="${s.id}" data-budgeted="${s.budgetedValue}" type="number" min="0" max="${s.maxAllowed}" value="${s.ownPct || ''}" placeholder="% executado nesta medição" oninput="updateMedServiceTotal('${prefix}')">
+    </div>
+  `;
+
+  const blocks = services.map(s => {
+    if (s.subItems && s.subItems.length) {
+      return `
+        <div style="margin-bottom:16px;">
+          <div style="font-size:12px;font-weight:700;color:var(--primary-800);margin-bottom:8px;">${s.name}</div>
+          <div style="padding-left:16px;border-left:2px solid var(--border);">
+            ${s.subItems.map(sub => leafInput(withAllocState(sub))).join('')}
+          </div>
+        </div>
+      `;
+    }
+    return leafInput(withAllocState(s));
+  }).join('');
 
   container.innerHTML = `
     <div class="card" style="background:var(--gray-50);">
       <div class="card-header"><div class="card-title" style="font-size:13px;">Alocação por Serviço</div></div>
-      <div class="card-body" style="padding:14px 20px;display:flex;flex-direction:column;gap:12px;">
-        ${rows.map(s => `
-          <div>
-            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
-              <span style="font-weight:600;color:var(--text);">${s.name}</span>
-              <span style="color:var(--text-faint);">Já executado: ${s.baselinePct.toFixed(1)}% • Orçado: ${fmt.currency(s.budgetedValue)}</span>
-            </div>
-            <input class="form-control svc-alloc-pct" data-service-id="${s.id}" data-budgeted="${s.budgetedValue}" type="number" min="0" max="${s.maxAllowed}" value="${s.ownPct || ''}" placeholder="% executado nesta medição" oninput="updateMedServiceTotal('${prefix}')">
-          </div>
-        `).join('')}
-        <div id="${prefix}-services-total" style="font-size:12px;font-weight:700;color:var(--primary-800);border-top:1px solid var(--border);padding-top:10px;"></div>
+      <div class="card-body" style="padding:14px 20px;">
+        ${blocks}
+        <div id="${prefix}-services-total" style="font-size:12px;font-weight:700;color:var(--primary-800);border-top:1px solid var(--border);padding-top:10px;margin-top:4px;"></div>
       </div>
     </div>
   `;
