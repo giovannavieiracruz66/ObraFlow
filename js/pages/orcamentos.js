@@ -395,19 +395,15 @@ window.deleteBudgetAttachment = function(budgetId, path) {
 function serviceSubItemRow(sub = {}) {
   const total = (sub.materialValue || 0) + (sub.laborValue || 0);
   return `
-    <div class="svc-subitem-row" style="border:1px dashed var(--border);border-radius:6px;padding:8px 10px;margin-bottom:8px;">
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
-        <input class="form-control svc-subname" placeholder="Nome do sub-item (ex: Escavação)" value="${sub.name ? String(sub.name).replace(/"/g, '&quot;') : ''}" style="flex:1;font-size:13px;">
-        <button type="button" class="btn btn-sm btn-ghost" style="color:var(--danger);flex-shrink:0;" onclick="removeSubItemRow(this)">
-          <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
-        </button>
-      </div>
-      <div style="display:flex;gap:8px;">
-        <input class="form-control svc-subqty" type="number" placeholder="Quantidade" value="${sub.quantity || ''}" style="flex:1;font-size:13px;">
-        <input class="form-control svc-submaterial" type="number" placeholder="Material (R$)" value="${sub.materialValue || ''}" style="flex:1;font-size:13px;" oninput="recalcServiceItemValue(this.closest('.service-item-block'))">
-        <input class="form-control svc-sublabor" type="number" placeholder="Mão de Obra (R$)" value="${sub.laborValue || ''}" style="flex:1;font-size:13px;" oninput="recalcServiceItemValue(this.closest('.service-item-block'))">
-        <input class="form-control svc-subtotal" type="number" value="${total || ''}" placeholder="Total" readonly style="flex:1;font-size:13px;background:var(--gray-50);">
-      </div>
+    <div class="svc-subitem-row" style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
+      <input class="form-control svc-subname" placeholder="Nome do sub-item (ex: Escavação)" value="${sub.name ? String(sub.name).replace(/"/g, '&quot;') : ''}" style="flex:2;font-size:13px;min-width:0;">
+      <input class="form-control svc-subqty" type="number" placeholder="Qtd." value="${sub.quantity || ''}" style="flex:1;font-size:13px;min-width:0;">
+      <input class="form-control svc-submaterial" type="number" placeholder="Material (R$)" value="${sub.materialValue || ''}" style="flex:1;font-size:13px;min-width:0;" oninput="recalcServiceItemValue(this.closest('.service-item-block'))">
+      <input class="form-control svc-sublabor" type="number" placeholder="Mão de Obra (R$)" value="${sub.laborValue || ''}" style="flex:1;font-size:13px;min-width:0;" oninput="recalcServiceItemValue(this.closest('.service-item-block'))">
+      <input class="form-control svc-subtotal" type="number" value="${total || ''}" placeholder="Total" readonly style="flex:1;font-size:13px;min-width:0;background:var(--gray-50);">
+      <button type="button" class="btn btn-sm btn-ghost" style="color:var(--danger);flex-shrink:0;" onclick="removeSubItemRow(this)">
+        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+      </button>
     </div>
   `;
 }
