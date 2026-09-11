@@ -534,9 +534,9 @@ function printMeasurementPDF(measurementId) {
           body { font-family: Arial, Helvetica, sans-serif; padding: 48px; color: #1a1a1a; font-size: 11px; }
           h1 { font-size: 18px; margin: 0 0 4px; }
           .muted { color: #666; font-size: 11px; margin-bottom: 2px; }
-          .company-box { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 10px; }
-          .company-box td { border: 1px solid #333; padding: 4px 8px; }
-          .company-box .k { font-weight: bold; white-space: nowrap; width: 1%; }
+          .company-box { display:grid; grid-template-columns: 2fr 1fr; gap: 3px 20px; padding: 8px 0; margin-bottom: 16px; border-top: 1.5px solid #111; border-bottom: 1.5px solid #111; font-size: 10px; }
+          .company-box .col { display:flex; flex-direction:column; gap: 3px; }
+          .company-box b { font-weight: 700; }
           .header-row { display:flex; justify-content:space-between; margin-bottom: 20px; padding-bottom:14px; border-bottom: 2px solid #111; }
           .items-table { width: 100%; border-collapse: collapse; margin-top: 16px; table-layout: fixed; }
           .items-table th, .items-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd; font-size: 11px; overflow-wrap: break-word; }
@@ -556,21 +556,19 @@ function printMeasurementPDF(measurementId) {
         </style>
       </head>
       <body>
-        <table class="company-box">
-          <tr><td class="k">RAZÃO SOCIAL:</td><td colspan="3">${company.name}</td></tr>
-          <tr>
-            <td class="k">CNPJ:</td><td>${company.cnpj}</td>
-            ${company.ie ? `<td class="k">I.E.:</td><td>${company.ie}</td>` : `<td colspan="2"></td>`}
-          </tr>
-          <tr><td class="k">END:</td><td colspan="3">${company.address}</td></tr>
-          <tr><td class="k">CEP:</td><td colspan="3">${company.cep}</td></tr>
-          ${company.contacts.map(c => `
-            <tr>
-              <td class="k">FONE:</td><td>${c.phone}</td>
-              <td colspan="2">${c.email || ''}</td>
-            </tr>
-          `).join('')}
-        </table>
+        <div class="company-box">
+          <div class="col">
+            <div><b>RAZÃO SOCIAL:</b> ${company.name}</div>
+            <div><b>CNPJ:</b> ${company.cnpj}</div>
+            <div><b>END:</b> ${company.address}</div>
+            <div><b>CEP:</b> ${company.cep}</div>
+            ${company.contacts.map(c => `<div><b>FONE:</b> ${c.phone}</div>`).join('')}
+          </div>
+          <div class="col">
+            ${company.ie ? `<div><b>I.E.:</b> ${company.ie}</div>` : ''}
+            ${company.contacts.filter(c => c.email).map(c => `<div>${c.email}</div>`).join('')}
+          </div>
+        </div>
 
         <div class="header-row">
           <div>
