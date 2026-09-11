@@ -319,18 +319,19 @@ function printBudgetPDF(budgetId) {
         </div>
 
         <table>
-          <thead><tr><th>Serviço</th><th>Qtd.</th><th>Valor</th></tr></thead>
+          <thead><tr><th>Serviço</th><th>Qtd.</th><th>Valor do Produto</th><th>Valor Total</th></tr></thead>
           <tbody>
             ${b.serviceItems && b.serviceItems.length ? b.serviceItems.map(it => `
-              <tr><td>${it.name}</td><td></td><td>${fmt.currency(it.value)}</td></tr>
+              <tr><td>${it.name}</td><td></td><td></td><td>${fmt.currency(it.value)}</td></tr>
               ${(it.subItems || []).map(sub => `
                 <tr class="sub-row">
                   <td>${sub.name}</td>
                   <td>${sub.quantity ? `${fmt.number(sub.quantity)}${sub.unit ? ' ' + sub.unit : ''}` : '—'}</td>
+                  <td>${fmt.currency(sub.quantity ? sub.value / sub.quantity : sub.value)}</td>
                   <td>${fmt.currency(sub.value)}</td>
                 </tr>
               `).join('')}
-            `).join('') : `<tr><td colspan="3">${b.services || '—'}</td></tr>`}
+            `).join('') : `<tr><td colspan="4">${b.services || '—'}</td></tr>`}
           </tbody>
         </table>
 
