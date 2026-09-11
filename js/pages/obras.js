@@ -445,7 +445,7 @@ function showProjectTab(tab, projectId) {
     const renderServiceRow = (s, isSub = false) => `
       <tr>
         <td class="td-main" style="${isSub ? 'padding-left:32px;color:var(--text-muted);font-weight:500;' : ''}">${s.name}</td>
-        <td>${isSub && s.quantity ? fmt.number(s.quantity) : '—'}</td>
+        <td>${isSub && s.quantity ? `${fmt.number(s.quantity)}${s.unit ? ' ' + s.unit : ''}` : '—'}</td>
         <td class="font-semibold">
           ${fmt.currency(s.budgetedValue)}
           ${isSub && (s.materialValue || s.laborValue) ? `<div style="font-size:10px;font-weight:400;color:var(--text-faint);">Mat: ${fmt.currency(s.materialValue||0)} • MO: ${fmt.currency(s.laborValue||0)}</div>` : ''}

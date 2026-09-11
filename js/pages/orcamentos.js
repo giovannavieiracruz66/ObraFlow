@@ -182,7 +182,7 @@ function openBudgetDetail(id) {
                   ${(it.subItems || []).map(sub => `
                     <tr>
                       <td style="padding-left:28px;color:var(--text-muted);">${sub.name}</td>
-                      <td>${sub.quantity ? fmt.number(sub.quantity) : '—'}</td>
+                      <td>${sub.quantity ? `${fmt.number(sub.quantity)}${sub.unit ? ' ' + sub.unit : ''}` : '—'}</td>
                       <td>${fmt.currency(sub.materialValue || 0)}</td>
                       <td>${fmt.currency(sub.laborValue || 0)}</td>
                       <td>${fmt.currency(sub.value)}</td>
@@ -305,7 +305,7 @@ function printBudgetPDF(budgetId) {
               ${(it.subItems || []).map(sub => `
                 <tr class="sub-row">
                   <td>${sub.name}</td>
-                  <td>${sub.quantity ? fmt.number(sub.quantity) : '—'}</td>
+                  <td>${sub.quantity ? `${fmt.number(sub.quantity)}${sub.unit ? ' ' + sub.unit : ''}` : '—'}</td>
                   <td>${fmt.currency(sub.materialValue || 0)}</td>
                   <td>${fmt.currency(sub.laborValue || 0)}</td>
                   <td>${fmt.currency(sub.value)}</td>
@@ -398,6 +398,7 @@ function serviceSubItemRow(sub = {}, prefix) {
     <div class="svc-subitem-row" style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
       <input class="form-control svc-subname" placeholder="Nome do sub-item (ex: Escavação)" value="${sub.name ? String(sub.name).replace(/"/g, '&quot;') : ''}" style="flex:2;font-size:13px;min-width:0;">
       <input class="form-control svc-subqty" type="number" placeholder="Qtd." value="${sub.quantity || ''}" style="flex:1;font-size:13px;min-width:0;" oninput="recalcServiceItemValue(this.closest('.service-item-block'))">
+      <input class="form-control svc-subunit" placeholder="Unid. (m², kg...)" value="${sub.unit ? String(sub.unit).replace(/"/g, '&quot;') : ''}" style="flex:1;font-size:13px;min-width:0;">
       <input class="form-control svc-submaterial" type="number" placeholder="Material (R$)" value="${sub.materialValue || ''}" style="flex:1;font-size:13px;min-width:0;" oninput="recalcServiceItemValue(this.closest('.service-item-block'))">
       <input class="form-control svc-sublabor" type="number" placeholder="Mão de Obra (R$)" value="${sub.laborValue || ''}" style="flex:1;font-size:13px;min-width:0;" oninput="recalcServiceItemValue(this.closest('.service-item-block'))">
       <input class="form-control svc-subtotal" type="number" value="${total || ''}" placeholder="Total" readonly style="flex:1;font-size:13px;min-width:0;background:var(--gray-50);">
@@ -528,6 +529,7 @@ function readServiceItems(prefix) {
           return {
             name: row.querySelector('.svc-subname').value.trim(),
             quantity,
+            unit: row.querySelector('.svc-subunit').value.trim() || null,
             materialValue,
             laborValue,
             value: qty * (materialValue + laborValue)
@@ -773,6 +775,7 @@ function convertBudgetToProject(budgetId) {
             name: sub.name,
             budgetedValue: sub.value || 0,
             quantity: sub.quantity || null,
+            unit: sub.unit || null,
             materialValue: sub.materialValue || null,
             laborValue: sub.laborValue || null,
             parentId: parent.id

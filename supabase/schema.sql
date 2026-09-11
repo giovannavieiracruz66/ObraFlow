@@ -210,6 +210,7 @@ create table public.project_services (
   budgeted_value numeric default 0,
   -- detalhamento (preenchido quando o serviço é um sub-item vindo do orçamento)
   quantity numeric,
+  unit text,
   material_value numeric,
   labor_value numeric,
   created_at timestamptz default now()
