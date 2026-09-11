@@ -152,23 +152,26 @@ function openBudgetDetail(id) {
     title: `Orçamento ${b.number}`,
     size: 'modal-lg',
     body: `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
-        <div>
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:4px;">Projeto</div>
-          <div style="font-weight:700;font-size:16px;">${b.projectName}</div>
-        </div>
-        <div>
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:4px;">Cliente</div>
-          <div style="font-weight:700;font-size:16px;">${client?.name || '—'}</div>
-        </div>
-        <div>
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:4px;">Criado em</div>
-          <div style="font-weight:600;">${fmt.date(b.createdAt)}</div>
-        </div>
-        <div>
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:4px;">Válido até</div>
-          <div style="font-weight:600;">${fmt.date(b.validUntil)}</div>
-        </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;margin-bottom:20px;">
+        ${[
+          ['Cliente', client?.name || '—'],
+          ['Obra', b.projectName],
+          ['Nº da Proposta', b.number],
+          ['Local', [b.address, b.city].filter(Boolean).join(', ') || '—'],
+          ['Responsável', b.responsible || '—'],
+          ['E-mail', b.contactEmail || client?.email || '—'],
+          ['Data Base', fmt.date(b.baseDate)],
+          ['Validade da Proposta', fmt.date(b.validUntil)],
+          ['Forma de Pagamento', b.paymentMethod || '—'],
+          ['Disponibilidade Início', fmt.date(b.startAvailability)],
+          ['Prazo de Execução', b.executionDeadline || '—'],
+          ['Criado em', fmt.date(b.createdAt)]
+        ].map(([l, v]) => `
+          <div>
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:4px;">${l}</div>
+            <div style="font-weight:700;font-size:14px;">${v}</div>
+          </div>
+        `).join('')}
       </div>
       <div style="margin-bottom:16px;">
         <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:4px;">Serviços</div>
@@ -274,6 +277,9 @@ function printBudgetPDF(budgetId) {
           th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #ddd; font-size: 13px; }
           th { background: #f5f5f5; text-transform: uppercase; font-size: 11px; letter-spacing: .04em; }
           .sub-row td:first-child { padding-left: 28px; color: #666; }
+          .info-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap: 12px 24px; margin-bottom: 20px; }
+          .info-grid .label { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: #888; margin-bottom: 2px; }
+          .info-grid .value { font-size: 13px; font-weight: 600; }
           .totals { margin-top: 24px; margin-left: auto; width: 280px; }
           .totals div { display:flex; justify-content:space-between; padding: 4px 0; font-size: 13px; }
           .totals .final { font-size: 18px; font-weight: bold; border-top: 2px solid #111; margin-top: 6px; padding-top: 8px; }
@@ -293,9 +299,19 @@ function printBudgetPDF(budgetId) {
           </div>
         </div>
 
-        <div class="muted"><strong>Cliente:</strong> ${client?.name || '—'}${client?.company ? ' — ' + client.company : ''}</div>
-        ${client?.phone ? `<div class="muted"><strong>Telefone:</strong> ${client.phone}</div>` : ''}
-        ${client?.email ? `<div class="muted"><strong>E-mail:</strong> ${client.email}</div>` : ''}
+        <div class="info-grid">
+          ${[
+            ['Cliente', `${client?.name || '—'}${client?.company ? ' — ' + client.company : ''}`],
+            ['Local', [b.address, b.city].filter(Boolean).join(', ') || '—'],
+            ['Responsável', b.responsible || '—'],
+            ['E-mail', b.contactEmail || client?.email || '—'],
+            ['Telefone', client?.phone || '—'],
+            ['Data Base', fmt.date(b.baseDate)],
+            ['Forma de Pagamento', b.paymentMethod || '—'],
+            ['Disponibilidade Início', fmt.date(b.startAvailability)],
+            ['Prazo de Execução', b.executionDeadline || '—']
+          ].map(([l, v]) => `<div><div class="label">${l}</div><div class="value">${v}</div></div>`).join('')}
+        </div>
 
         <table>
           <thead><tr><th>Serviço</th><th>Qtd.</th><th>Material</th><th>Mão de Obra</th><th>Valor</th></tr></thead>
@@ -568,12 +584,44 @@ function openNewBudgetModal() {
           <input class="form-control" id="b-projname" placeholder="Ex: Residência Alto Padrão">
         </div>
         <div class="form-group">
+          <label class="form-label">Local (Endereço)</label>
+          <input class="form-control" id="b-address" placeholder="Rua, número">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cidade</label>
+          <input class="form-control" id="b-city" placeholder="São Paulo">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Responsável</label>
+          <input class="form-control" id="b-responsible" placeholder="Nome do responsável">
+        </div>
+        <div class="form-group">
+          <label class="form-label">E-mail de Contato</label>
+          <input class="form-control" id="b-email" type="email" placeholder="cliente@empresa.com">
+        </div>
+        <div class="form-group">
           <label class="form-label">Data de Criação</label>
           <input class="form-control" id="b-created" type="date" value="${new Date().toISOString().split('T')[0]}">
         </div>
         <div class="form-group">
-          <label class="form-label">Validade</label>
+          <label class="form-label">Data Base</label>
+          <input class="form-control" id="b-basedate" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Validade da Proposta</label>
           <input class="form-control" id="b-valid" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Forma de Pagamento</label>
+          <input class="form-control" id="b-payment" placeholder="Ex: Medições mensais">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Disponibilidade Início</label>
+          <input class="form-control" id="b-startavail" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Prazo de Execução</label>
+          <input class="form-control" id="b-execdeadline" placeholder="Ex: 90 dias corridos">
         </div>
         <div class="form-group">
           <label class="form-label">Materiais (R$)</label>
@@ -623,8 +671,16 @@ function openNewBudgetModal() {
       Store.add('budgets', {
         number: document.getElementById('b-num').value,
         clientId, projectName: proj,
+        address: document.getElementById('b-address').value.trim() || null,
+        city: document.getElementById('b-city').value.trim() || null,
+        responsible: document.getElementById('b-responsible').value.trim() || null,
+        contactEmail: document.getElementById('b-email').value.trim() || null,
         createdAt: document.getElementById('b-created').value,
+        baseDate: document.getElementById('b-basedate').value || null,
         validUntil: document.getElementById('b-valid').value,
+        paymentMethod: document.getElementById('b-payment').value.trim() || null,
+        startAvailability: document.getElementById('b-startavail').value || null,
+        executionDeadline: document.getElementById('b-execdeadline').value.trim() || null,
         materials: mat, labor: lab, discount: disc,
         value: mat + lab, finalValue: parseFloat(document.getElementById('b-final').value)||(mat+lab-disc),
         serviceItems,
@@ -669,8 +725,40 @@ function openEditBudgetModal(id) {
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Validade</label>
+          <label class="form-label">Local (Endereço)</label>
+          <input class="form-control" id="eb-address" value="${b.address || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cidade</label>
+          <input class="form-control" id="eb-city" value="${b.city || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Responsável</label>
+          <input class="form-control" id="eb-responsible" value="${b.responsible || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">E-mail de Contato</label>
+          <input class="form-control" id="eb-email" type="email" value="${b.contactEmail || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Data Base</label>
+          <input class="form-control" id="eb-basedate" type="date" value="${b.baseDate || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Validade da Proposta</label>
           <input class="form-control" id="eb-valid" type="date" value="${b.validUntil||''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Forma de Pagamento</label>
+          <input class="form-control" id="eb-payment" value="${b.paymentMethod || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Disponibilidade Início</label>
+          <input class="form-control" id="eb-startavail" type="date" value="${b.startAvailability || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Prazo de Execução</label>
+          <input class="form-control" id="eb-execdeadline" value="${b.executionDeadline || ''}">
         </div>
         <div class="form-group">
           <label class="form-label">Materiais (R$)</label>
@@ -709,7 +797,15 @@ function openEditBudgetModal(id) {
       Store.update('budgets', id, {
         projectName: document.getElementById('eb-projname').value,
         status: document.getElementById('eb-status').value,
+        address: document.getElementById('eb-address').value.trim() || null,
+        city: document.getElementById('eb-city').value.trim() || null,
+        responsible: document.getElementById('eb-responsible').value.trim() || null,
+        contactEmail: document.getElementById('eb-email').value.trim() || null,
+        baseDate: document.getElementById('eb-basedate').value || null,
         validUntil: document.getElementById('eb-valid').value,
+        paymentMethod: document.getElementById('eb-payment').value.trim() || null,
+        startAvailability: document.getElementById('eb-startavail').value || null,
+        executionDeadline: document.getElementById('eb-execdeadline').value.trim() || null,
         materials: parseFloat(document.getElementById('eb-materials').value)||0,
         labor: parseFloat(document.getElementById('eb-labor').value)||0,
         discount: parseFloat(document.getElementById('eb-discount').value)||0,
@@ -741,21 +837,22 @@ function convertBudgetToProject(budgetId) {
       const project = await Store.addAwait('projects', {
         name: b.projectName,
         clientId: b.clientId,
-        responsible: Store.getCurrentUserLabel(),
+        responsible: b.responsible || Store.getCurrentUserLabel(),
         category: 'Outros',
         status: 'aprovado',
-        address: '',
-        city: '',
+        address: b.address || '',
+        city: b.city || '',
         contractValue: b.finalValue,
         receivedValue: 0,
         costValue: b.materials + b.labor,
-        paymentMethod: '',
+        paymentMethod: b.paymentMethod || '',
         proposalNumber: b.number,
-        contactEmail: client?.email || null,
-        baseDate: b.createdAt,
+        contactEmail: b.contactEmail || client?.email || null,
+        baseDate: b.baseDate || b.createdAt,
         proposalValidUntil: b.validUntil,
+        executionDeadline: b.executionDeadline || null,
         closedAt: new Date().toISOString().split('T')[0],
-        startDate: null,
+        startDate: b.startAvailability || null,
         endDate: null,
         description: b.services,
         notes: `Gerado a partir do orçamento ${b.number}`,
