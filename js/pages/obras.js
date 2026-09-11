@@ -445,7 +445,11 @@ function showProjectTab(tab, projectId) {
     const renderServiceRow = (s, isSub = false) => `
       <tr>
         <td class="td-main" style="${isSub ? 'padding-left:32px;color:var(--text-muted);font-weight:500;' : ''}">${s.name}</td>
-        <td class="font-semibold">${fmt.currency(s.budgetedValue)}</td>
+        <td>${isSub && s.quantity ? fmt.number(s.quantity) : '—'}</td>
+        <td class="font-semibold">
+          ${fmt.currency(s.budgetedValue)}
+          ${isSub && (s.materialValue || s.laborValue) ? `<div style="font-size:10px;font-weight:400;color:var(--text-faint);">Mat: ${fmt.currency(s.materialValue||0)} • MO: ${fmt.currency(s.laborValue||0)}</div>` : ''}
+        </td>
         <td>
           <div style="min-width:120px;">
             <div class="progress-bar-wrap"><div class="progress-bar ${s.executedPct >= 100 ? 'green' : 'blue'}" style="width:${s.executedPct}%"></div></div>
@@ -470,9 +474,9 @@ function showProjectTab(tab, projectId) {
         </div>
         <div class="table-wrapper">
           <table>
-            <thead><tr><th>SERVIÇO</th><th>VALOR ORÇADO</th><th>PROGRESSO</th><th>VALOR EXECUTADO</th><th></th></tr></thead>
+            <thead><tr><th>SERVIÇO</th><th>QTD.</th><th>VALOR ORÇADO</th><th>PROGRESSO</th><th>VALOR EXECUTADO</th><th></th></tr></thead>
             <tbody>
-              ${services.length ? rowsHtml : '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhum serviço cadastrado. Adicione manualmente ou aprove um orçamento com itens.</td></tr>'}
+              ${services.length ? rowsHtml : '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">Nenhum serviço cadastrado. Adicione manualmente ou aprove um orçamento com itens.</td></tr>'}
             </tbody>
           </table>
         </div>

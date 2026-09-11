@@ -175,11 +175,19 @@ function openBudgetDetail(id) {
         ${b.serviceItems && b.serviceItems.length ? `
           <div class="table-wrapper" style="margin-top:8px;">
             <table>
-              <thead><tr><th>SERVIÇO</th><th>VALOR</th></tr></thead>
+              <thead><tr><th>SERVIÇO</th><th>QTD.</th><th>MATERIAL</th><th>MÃO DE OBRA</th><th>VALOR</th></tr></thead>
               <tbody>
                 ${b.serviceItems.map(it => `
-                  <tr><td class="td-main">${it.name}</td><td class="font-semibold">${fmt.currency(it.value)}</td></tr>
-                  ${(it.subItems || []).map(sub => `<tr><td style="padding-left:28px;color:var(--text-muted);">${sub.name}</td><td>${fmt.currency(sub.value)}</td></tr>`).join('')}
+                  <tr><td class="td-main">${it.name}</td><td></td><td></td><td></td><td class="font-semibold">${fmt.currency(it.value)}</td></tr>
+                  ${(it.subItems || []).map(sub => `
+                    <tr>
+                      <td style="padding-left:28px;color:var(--text-muted);">${sub.name}</td>
+                      <td>${sub.quantity ? fmt.number(sub.quantity) : '—'}</td>
+                      <td>${fmt.currency(sub.materialValue || 0)}</td>
+                      <td>${fmt.currency(sub.laborValue || 0)}</td>
+                      <td>${fmt.currency(sub.value)}</td>
+                    </tr>
+                  `).join('')}
                 `).join('')}
               </tbody>
             </table>
@@ -290,12 +298,20 @@ function printBudgetPDF(budgetId) {
         ${client?.email ? `<div class="muted"><strong>E-mail:</strong> ${client.email}</div>` : ''}
 
         <table>
-          <thead><tr><th>Serviço</th><th>Valor</th></tr></thead>
+          <thead><tr><th>Serviço</th><th>Qtd.</th><th>Material</th><th>Mão de Obra</th><th>Valor</th></tr></thead>
           <tbody>
             ${b.serviceItems && b.serviceItems.length ? b.serviceItems.map(it => `
-              <tr><td>${it.name}</td><td>${fmt.currency(it.value)}</td></tr>
-              ${(it.subItems || []).map(sub => `<tr class="sub-row"><td>${sub.name}</td><td>${fmt.currency(sub.value)}</td></tr>`).join('')}
-            `).join('') : `<tr><td colspan="2">${b.services || '—'}</td></tr>`}
+              <tr><td>${it.name}</td><td></td><td></td><td></td><td>${fmt.currency(it.value)}</td></tr>
+              ${(it.subItems || []).map(sub => `
+                <tr class="sub-row">
+                  <td>${sub.name}</td>
+                  <td>${sub.quantity ? fmt.number(sub.quantity) : '—'}</td>
+                  <td>${fmt.currency(sub.materialValue || 0)}</td>
+                  <td>${fmt.currency(sub.laborValue || 0)}</td>
+                  <td>${fmt.currency(sub.value)}</td>
+                </tr>
+              `).join('')}
+            `).join('') : `<tr><td colspan="5">${b.services || '—'}</td></tr>`}
           </tbody>
         </table>
 
@@ -377,13 +393,21 @@ window.deleteBudgetAttachment = function(budgetId, path) {
 
 // === ITENS DE SERVIÇO (orçamento) ===
 function serviceSubItemRow(sub = {}) {
+  const total = (sub.materialValue || 0) + (sub.laborValue || 0);
   return `
-    <div class="svc-subitem-row" style="display:flex;gap:8px;margin-bottom:6px;align-items:center;">
-      <input class="form-control svc-subname" placeholder="Nome do sub-item" value="${sub.name ? String(sub.name).replace(/"/g, '&quot;') : ''}" style="flex:2;font-size:13px;">
-      <input class="form-control svc-subvalue" type="number" placeholder="Valor (R$)" value="${sub.value || ''}" style="flex:1;font-size:13px;" oninput="recalcServiceItemValue(this.closest('.service-item-block'))">
-      <button type="button" class="btn btn-sm btn-ghost" style="color:var(--danger);flex-shrink:0;" onclick="removeSubItemRow(this)">
-        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
-      </button>
+    <div class="svc-subitem-row" style="border:1px dashed var(--border);border-radius:6px;padding:8px 10px;margin-bottom:8px;">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
+        <input class="form-control svc-subname" placeholder="Nome do sub-item (ex: Escavação)" value="${sub.name ? String(sub.name).replace(/"/g, '&quot;') : ''}" style="flex:1;font-size:13px;">
+        <button type="button" class="btn btn-sm btn-ghost" style="color:var(--danger);flex-shrink:0;" onclick="removeSubItemRow(this)">
+          <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+        </button>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <input class="form-control svc-subqty" type="number" placeholder="Quantidade" value="${sub.quantity || ''}" style="flex:1;font-size:13px;">
+        <input class="form-control svc-submaterial" type="number" placeholder="Material (R$)" value="${sub.materialValue || ''}" style="flex:1;font-size:13px;" oninput="recalcServiceItemValue(this.closest('.service-item-block'))">
+        <input class="form-control svc-sublabor" type="number" placeholder="Mão de Obra (R$)" value="${sub.laborValue || ''}" style="flex:1;font-size:13px;" oninput="recalcServiceItemValue(this.closest('.service-item-block'))">
+        <input class="form-control svc-subtotal" type="number" value="${total || ''}" placeholder="Total" readonly style="flex:1;font-size:13px;background:var(--gray-50);">
+      </div>
     </div>
   `;
 }
@@ -442,9 +466,17 @@ function removeSubItemRow(btn) {
 }
 
 function recalcServiceItemValue(block) {
-  const total = [...block.querySelectorAll('.svc-subvalue')].reduce((sum, inp) => sum + (parseFloat(inp.value) || 0), 0);
+  let grandTotal = 0;
+  block.querySelectorAll('.svc-subitem-row').forEach(row => {
+    const material = parseFloat(row.querySelector('.svc-submaterial').value) || 0;
+    const labor = parseFloat(row.querySelector('.svc-sublabor').value) || 0;
+    const subTotal = material + labor;
+    const totalField = row.querySelector('.svc-subtotal');
+    if (totalField) totalField.value = subTotal || '';
+    grandTotal += subTotal;
+  });
   const valueInput = block.querySelector('.svc-value');
-  if (valueInput.readOnly) valueInput.value = total || '';
+  if (valueInput.readOnly) valueInput.value = grandTotal || '';
 }
 
 function readServiceItems(prefix) {
@@ -454,10 +486,17 @@ function readServiceItems(prefix) {
     .map(block => {
       const name = block.querySelector('.svc-name').value.trim();
       const subItems = [...block.querySelectorAll('.svc-subitem-row')]
-        .map(row => ({
-          name: row.querySelector('.svc-subname').value.trim(),
-          value: parseFloat(row.querySelector('.svc-subvalue').value) || 0
-        }))
+        .map(row => {
+          const materialValue = parseFloat(row.querySelector('.svc-submaterial').value) || 0;
+          const laborValue = parseFloat(row.querySelector('.svc-sublabor').value) || 0;
+          return {
+            name: row.querySelector('.svc-subname').value.trim(),
+            quantity: parseFloat(row.querySelector('.svc-subqty').value) || 0,
+            materialValue,
+            laborValue,
+            value: materialValue + laborValue
+          };
+        })
         .filter(s => s.name);
       const ownValue = parseFloat(block.querySelector('.svc-value').value) || 0;
       const value = subItems.length ? subItems.reduce((s, i) => s + i.value, 0) : ownValue;
@@ -696,6 +735,9 @@ function convertBudgetToProject(budgetId) {
             projectId: project.id,
             name: sub.name,
             budgetedValue: sub.value || 0,
+            quantity: sub.quantity || null,
+            materialValue: sub.materialValue || null,
+            laborValue: sub.laborValue || null,
             parentId: parent.id
           });
         }

@@ -208,6 +208,10 @@ create table public.project_services (
   parent_id uuid references public.project_services(id) on delete cascade,
   name text not null,
   budgeted_value numeric default 0,
+  -- detalhamento (preenchido quando o serviço é um sub-item vindo do orçamento)
+  quantity numeric,
+  material_value numeric,
+  labor_value numeric,
   created_at timestamptz default now()
 );
 
