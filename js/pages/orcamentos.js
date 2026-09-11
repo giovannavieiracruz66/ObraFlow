@@ -392,7 +392,7 @@ window.deleteBudgetAttachment = function(budgetId, path) {
 };
 
 // === ITENS DE SERVIÇO (orçamento) ===
-function serviceSubItemRow(sub = {}) {
+function serviceSubItemRow(sub = {}, prefix) {
   const total = (sub.materialValue || 0) + (sub.laborValue || 0);
   return `
     <div class="svc-subitem-row" style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
@@ -401,28 +401,28 @@ function serviceSubItemRow(sub = {}) {
       <input class="form-control svc-submaterial" type="number" placeholder="Material (R$)" value="${sub.materialValue || ''}" style="flex:1;font-size:13px;min-width:0;" oninput="recalcServiceItemValue(this.closest('.service-item-block'))">
       <input class="form-control svc-sublabor" type="number" placeholder="Mão de Obra (R$)" value="${sub.laborValue || ''}" style="flex:1;font-size:13px;min-width:0;" oninput="recalcServiceItemValue(this.closest('.service-item-block'))">
       <input class="form-control svc-subtotal" type="number" value="${total || ''}" placeholder="Total" readonly style="flex:1;font-size:13px;min-width:0;background:var(--gray-50);">
-      <button type="button" class="btn btn-sm btn-ghost" style="color:var(--danger);flex-shrink:0;" onclick="removeSubItemRow(this)">
+      <button type="button" class="btn btn-sm btn-ghost" style="color:var(--danger);flex-shrink:0;" onclick="removeSubItemRow(this, '${prefix}')">
         <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
       </button>
     </div>
   `;
 }
 
-function serviceItemBlock(it = {}) {
+function serviceItemBlock(it = {}, prefix) {
   const subItems = it.subItems || [];
   return `
     <div class="service-item-block" style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;background:var(--surface);">
       <div style="display:flex;gap:8px;align-items:center;">
         <input class="form-control svc-name" placeholder="Nome do serviço (ex: Terraplanagem)" value="${it.name ? String(it.name).replace(/"/g, '&quot;') : ''}" style="flex:2;">
         <input class="form-control svc-value" type="number" placeholder="Valor (R$)" value="${it.value || ''}" style="flex:1;" ${subItems.length ? 'readonly' : ''}>
-        <button type="button" class="btn btn-sm btn-ghost" style="color:var(--danger);flex-shrink:0;" onclick="this.closest('.service-item-block').remove()">
+        <button type="button" class="btn btn-sm btn-ghost" style="color:var(--danger);flex-shrink:0;" onclick="this.closest('.service-item-block').remove(); recalcBudgetTotals('${prefix}')">
           <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
         </button>
       </div>
       <div class="svc-subitems" style="margin-left:20px;margin-top:8px;">
-        ${subItems.map(sub => serviceSubItemRow(sub)).join('')}
+        ${subItems.map(sub => serviceSubItemRow(sub, prefix)).join('')}
       </div>
-      <button type="button" class="btn btn-sm btn-ghost" style="margin-left:20px;margin-top:2px;font-size:12px;" onclick="addSubItemRow(this)">+ Sub-item</button>
+      <button type="button" class="btn btn-sm btn-ghost" style="margin-left:20px;margin-top:2px;font-size:12px;" onclick="addSubItemRow(this, '${prefix}')">+ Sub-item</button>
     </div>
   `;
 }
@@ -432,8 +432,8 @@ function serviceItemsBuilder(prefix, items = []) {
   return `
     <div class="form-group form-col-span-2">
       <label class="form-label">Serviços (cada item vira um serviço na obra; sub-itens detalham de onde vem o valor)</label>
-      <div id="${prefix}-service-items">
-        ${rows.map(it => serviceItemBlock(it)).join('')}
+      <div id="${prefix}-service-items" oninput="recalcBudgetTotals('${prefix}')">
+        ${rows.map(it => serviceItemBlock(it, prefix)).join('')}
       </div>
       <button type="button" class="btn btn-sm btn-outline" style="margin-top:4px;" onclick="addServiceItemRow('${prefix}')">+ Adicionar Serviço</button>
     </div>
@@ -443,22 +443,59 @@ function serviceItemsBuilder(prefix, items = []) {
 function addServiceItemRow(prefix) {
   const container = document.getElementById(`${prefix}-service-items`);
   if (!container) return;
-  container.insertAdjacentHTML('beforeend', serviceItemBlock());
+  container.insertAdjacentHTML('beforeend', serviceItemBlock({}, prefix));
+  recalcBudgetTotals(prefix);
 }
 
-function addSubItemRow(btn) {
+function addSubItemRow(btn, prefix) {
   const block = btn.closest('.service-item-block');
-  block.querySelector('.svc-subitems').insertAdjacentHTML('beforeend', serviceSubItemRow());
+  block.querySelector('.svc-subitems').insertAdjacentHTML('beforeend', serviceSubItemRow({}, prefix));
   block.querySelector('.svc-value').readOnly = true;
   recalcServiceItemValue(block);
+  recalcBudgetTotals(prefix);
 }
 
-function removeSubItemRow(btn) {
+function removeSubItemRow(btn, prefix) {
   const block = btn.closest('.service-item-block');
   btn.closest('.svc-subitem-row').remove();
   const stillHasSubItems = !!block.querySelector('.svc-subitem-row');
   block.querySelector('.svc-value').readOnly = stillHasSubItems;
   if (stillHasSubItems) recalcServiceItemValue(block);
+  recalcBudgetTotals(prefix);
+}
+
+// Soma o total de todos os serviços (material dos sub-itens, mão de obra
+// dos sub-itens, e o valor cheio de itens sem sub-item) e joga isso nos
+// campos Materiais/Mão de Obra/Valor Final do orçamento.
+function recalcBudgetTotals(prefix) {
+  const container = document.getElementById(`${prefix}-service-items`);
+  if (!container) return;
+
+  let totalMaterial = 0;
+  let totalLabor = 0;
+  let totalFlat = 0;
+
+  container.querySelectorAll('.service-item-block').forEach(block => {
+    const subRows = block.querySelectorAll('.svc-subitem-row');
+    if (subRows.length) {
+      subRows.forEach(row => {
+        const qty = parseFloat(row.querySelector('.svc-subqty').value) || 1;
+        const material = parseFloat(row.querySelector('.svc-submaterial').value) || 0;
+        const labor = parseFloat(row.querySelector('.svc-sublabor').value) || 0;
+        totalMaterial += qty * material;
+        totalLabor += qty * labor;
+      });
+    } else {
+      totalFlat += parseFloat(block.querySelector('.svc-value').value) || 0;
+    }
+  });
+
+  const materialsField = document.getElementById(`${prefix}-materials`);
+  const laborField = document.getElementById(`${prefix}-labor`);
+  if (materialsField) materialsField.value = (totalMaterial + totalFlat) || '';
+  if (laborField) laborField.value = totalLabor || '';
+
+  calcBudgetTotal(prefix);
 }
 
 function recalcServiceItemValue(block) {
@@ -601,11 +638,11 @@ function openNewBudgetModal() {
   }, 50);
 }
 
-function calcBudgetTotal() {
-  const mat = parseFloat(document.getElementById('b-materials')?.value)||0;
-  const lab = parseFloat(document.getElementById('b-labor')?.value)||0;
-  const disc = parseFloat(document.getElementById('b-discount')?.value)||0;
-  const finalEl = document.getElementById('b-final');
+function calcBudgetTotal(prefix = 'b') {
+  const mat = parseFloat(document.getElementById(`${prefix}-materials`)?.value)||0;
+  const lab = parseFloat(document.getElementById(`${prefix}-labor`)?.value)||0;
+  const disc = parseFloat(document.getElementById(`${prefix}-discount`)?.value)||0;
+  const finalEl = document.getElementById(`${prefix}-final`);
   if (finalEl) finalEl.value = mat + lab - disc;
 }
 
@@ -635,15 +672,15 @@ function openEditBudgetModal(id) {
         </div>
         <div class="form-group">
           <label class="form-label">Materiais (R$)</label>
-          <input class="form-control" id="eb-materials" type="number" value="${b.materials}">
+          <input class="form-control" id="eb-materials" type="number" value="${b.materials}" oninput="calcBudgetTotal('eb')">
         </div>
         <div class="form-group">
           <label class="form-label">Mão de Obra (R$)</label>
-          <input class="form-control" id="eb-labor" type="number" value="${b.labor}">
+          <input class="form-control" id="eb-labor" type="number" value="${b.labor}" oninput="calcBudgetTotal('eb')">
         </div>
         <div class="form-group">
           <label class="form-label">Desconto (R$)</label>
-          <input class="form-control" id="eb-discount" type="number" value="${b.discount||0}">
+          <input class="form-control" id="eb-discount" type="number" value="${b.discount||0}" oninput="calcBudgetTotal('eb')">
         </div>
         <div class="form-group">
           <label class="form-label">Valor Final (R$)</label>
@@ -663,6 +700,7 @@ function openEditBudgetModal(id) {
   });
 
   setTimeout(() => {
+    if ((b.serviceItems || []).length) recalcBudgetTotals('eb');
     document.getElementById('modal-cancel')?.addEventListener('click', close);
     document.getElementById('modal-save')?.addEventListener('click', () => {
       const serviceItems = readServiceItems('eb');
