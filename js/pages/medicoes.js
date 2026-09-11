@@ -537,9 +537,12 @@ function printMeasurementPDF(measurementId) {
           .company-name { font-size: 13px; font-weight: 800; }
           .company-meta { font-size: 10px; color: #666; margin-top: 2px; line-height: 1.5; }
           .header-row { display:flex; justify-content:space-between; margin-bottom: 20px; padding-bottom:14px; border-bottom: 2px solid #111; }
-          table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-          th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #ddd; font-size: 11px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 16px; table-layout: fixed; }
+          th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd; font-size: 11px; overflow-wrap: break-word; }
           th { background: #f5f5f5; text-transform: uppercase; font-size: 10px; letter-spacing: .04em; }
+          th:nth-child(1), td:nth-child(1) { width: 55%; }
+          th:nth-child(2), td:nth-child(2) { width: 25%; text-align: right; }
+          th:nth-child(3), td:nth-child(3) { width: 20%; text-align: right; }
           .breakdown { margin-top: 20px; margin-left: auto; width: 320px; }
           .breakdown div { display:flex; justify-content:space-between; padding: 4px 0; font-size: 11px; }
           .breakdown .bold { font-weight: bold; }
