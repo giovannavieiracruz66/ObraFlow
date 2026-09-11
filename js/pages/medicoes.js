@@ -541,9 +541,9 @@ function printMeasurementPDF(measurementId) {
           .items-table { width: 100%; border-collapse: collapse; margin-top: 16px; table-layout: fixed; }
           .items-table th, .items-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd; font-size: 11px; overflow-wrap: break-word; }
           .items-table th { background: #f5f5f5; text-transform: uppercase; font-size: 10px; letter-spacing: .04em; }
-          .items-table th:nth-child(1), .items-table td:nth-child(1) { width: 55%; }
-          .items-table th:nth-child(2), .items-table td:nth-child(2) { width: 25%; text-align: right; }
-          .items-table th:nth-child(3), .items-table td:nth-child(3) { width: 20%; text-align: right; }
+          .items-table th:nth-child(1), .items-table td:nth-child(1) { width: 64%; }
+          .items-table th:nth-child(2), .items-table td:nth-child(2) { width: 18%; text-align: right; padding-right: 4px; }
+          .items-table th:nth-child(3), .items-table td:nth-child(3) { width: 18%; text-align: right; padding-right: 4px; }
           .breakdown { margin-top: 20px; margin-left: auto; width: 320px; }
           .breakdown div { display:flex; justify-content:space-between; padding: 4px 0; font-size: 11px; }
           .breakdown .bold { font-weight: bold; }

@@ -286,10 +286,10 @@ function printBudgetPDF(budgetId) {
           .items-table { width: 100%; border-collapse: collapse; margin-top: 16px; table-layout: fixed; }
           .items-table th, .items-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd; font-size: 11px; overflow-wrap: break-word; }
           .items-table th { background: #f5f5f5; text-transform: uppercase; font-size: 10px; letter-spacing: .04em; }
-          .items-table th:nth-child(1), .items-table td:nth-child(1) { width: 48%; }
-          .items-table th:nth-child(2), .items-table td:nth-child(2) { width: 12%; text-align: right; }
-          .items-table th:nth-child(3), .items-table td:nth-child(3) { width: 20%; text-align: right; }
-          .items-table th:nth-child(4), .items-table td:nth-child(4) { width: 20%; text-align: right; }
+          .items-table th:nth-child(1), .items-table td:nth-child(1) { width: 60%; }
+          .items-table th:nth-child(2), .items-table td:nth-child(2) { width: 8%; text-align: right; padding-right: 4px; }
+          .items-table th:nth-child(3), .items-table td:nth-child(3) { width: 16%; text-align: right; padding-right: 4px; }
+          .items-table th:nth-child(4), .items-table td:nth-child(4) { width: 16%; text-align: right; padding-right: 4px; }
           .sub-row td:first-child { padding-left: 28px; color: #666; }
           .info-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap: 10px 24px; margin-bottom: 18px; }
           .info-grid .label { font-size: 9px; text-transform: uppercase; letter-spacing: .04em; color: #888; margin-bottom: 2px; }
