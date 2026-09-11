@@ -198,11 +198,15 @@ function openBudgetDetail(id) {
         ` : `<p style="font-size:13px;color:var(--text-light);">${b.services || '—'}</p>`}
       </div>
       <div style="background:var(--gray-50);border-radius:10px;padding:16px;margin-bottom:16px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;text-align:center;">
-          ${[['Materiais',b.materials],['Mão de Obra',b.labor],['Desconto',b.discount||0],['Valor Final',b.finalValue]].map(([l,v],i) => `
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center;">
+          ${[
+            ['Valor do Produto', (b.materials||0) + (b.labor||0), false, false],
+            ['Desconto', b.discount||0, true, false],
+            ['Valor Final', b.finalValue, false, true]
+          ].map(([l, v, isDiscount, isFinal]) => `
             <div>
               <div style="font-size:11px;color:var(--text-faint);">${l}</div>
-              <div style="font-size:${i===3?'20':'16'}px;font-weight:800;color:${i===2?'var(--danger)':i===3?'var(--primary-800)':'var(--text)'};">${i===2&&v>0?'-':i===2?'':''} ${fmt.currency(v)}</div>
+              <div style="font-size:${isFinal?'20':'16'}px;font-weight:800;color:${isDiscount?'var(--danger)':isFinal?'var(--primary-800)':'var(--text)'};">${isDiscount && v>0 ? '- ' : ''}${fmt.currency(v)}</div>
             </div>
           `).join('')}
         </div>
@@ -330,8 +334,7 @@ function printBudgetPDF(budgetId) {
         </table>
 
         <div class="totals">
-          <div><span>Materiais</span><span>${fmt.currency(b.materials)}</span></div>
-          <div><span>Mão de Obra</span><span>${fmt.currency(b.labor)}</span></div>
+          <div><span>Valor do Produto</span><span>${fmt.currency((b.materials||0) + (b.labor||0))}</span></div>
           ${b.discount ? `<div><span>Desconto</span><span>- ${fmt.currency(b.discount)}</span></div>` : ''}
           <div class="final"><span>Valor Final</span><span>${fmt.currency(b.finalValue)}</span></div>
         </div>
