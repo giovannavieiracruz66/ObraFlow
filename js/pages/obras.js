@@ -254,6 +254,33 @@ function openProjectDetail(id) {
       </div>
     </div>
 
+    <!-- Dados da Proposta / Contrato -->
+    <div class="card" style="margin-bottom:24px;">
+      <div class="card-header"><div class="card-title">Dados da Proposta / Contrato</div></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;">
+          ${[
+            ['Cliente', client?.name || '—'],
+            ['Obra', project.name],
+            ['Nº da Proposta', project.proposalNumber || '—'],
+            ['Local', [project.address, project.city].filter(Boolean).join(', ') || '—'],
+            ['Responsável', project.responsible || '—'],
+            ['E-mail', project.contactEmail || client?.email || '—'],
+            ['Data Base', fmt.date(project.baseDate)],
+            ['Validade da Proposta', fmt.date(project.proposalValidUntil)],
+            ['Forma de Pagamento', project.paymentMethod || '—'],
+            ['Disponibilidade Início', fmt.date(project.startDate)],
+            ['Prazo de Execução', project.executionDeadline || '—']
+          ].map(([l, v]) => `
+            <div>
+              <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);font-weight:700;margin-bottom:2px;">${l}</div>
+              <div style="font-size:14px;font-weight:600;color:var(--text);">${v}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+
     <!-- Progress bars -->
     <div class="card" style="margin-bottom:24px;">
       <div class="card-body">
@@ -614,15 +641,35 @@ function openNewProjectModal(prefill = {}) {
           <input class="form-control" id="pj-value" type="number" placeholder="0">
         </div>
         <div class="form-group">
+          <label class="form-label">Nº da Proposta</label>
+          <input class="form-control" id="pj-proposal" placeholder="Ex: ORC-2026-001">
+        </div>
+        <div class="form-group">
+          <label class="form-label">E-mail de Contato</label>
+          <input class="form-control" id="pj-email" type="email" placeholder="cliente@empresa.com">
+        </div>
+        <div class="form-group">
           <label class="form-label">Forma de Pagamento</label>
           <input class="form-control" id="pj-payment" placeholder="Ex: Medições mensais">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Data Base</label>
+          <input class="form-control" id="pj-basedate" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Validade da Proposta</label>
+          <input class="form-control" id="pj-validuntil" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Prazo de Execução</label>
+          <input class="form-control" id="pj-execdeadline" placeholder="Ex: 90 dias corridos">
         </div>
         <div class="form-group">
           <label class="form-label">Data de Fechamento</label>
           <input class="form-control" id="pj-closed" type="date">
         </div>
         <div class="form-group">
-          <label class="form-label">Início Previsto</label>
+          <label class="form-label">Disponibilidade Início</label>
           <input class="form-control" id="pj-start" type="date">
         </div>
         <div class="form-group">
@@ -659,7 +706,12 @@ function openNewProjectModal(prefill = {}) {
         address: document.getElementById('pj-address').value,
         city: document.getElementById('pj-city').value,
         contractValue: parseFloat(document.getElementById('pj-value').value) || 0,
+        proposalNumber: document.getElementById('pj-proposal').value.trim() || null,
+        contactEmail: document.getElementById('pj-email').value.trim() || null,
         paymentMethod: document.getElementById('pj-payment').value,
+        baseDate: document.getElementById('pj-basedate').value || null,
+        proposalValidUntil: document.getElementById('pj-validuntil').value || null,
+        executionDeadline: document.getElementById('pj-execdeadline').value.trim() || null,
         closedAt: document.getElementById('pj-closed').value || null,
         startDate: document.getElementById('pj-start').value || null,
         endDate: document.getElementById('pj-end').value || null,
@@ -718,7 +770,39 @@ function openEditProjectModal(id) {
           <input class="form-control" id="epj-value" type="number" value="${p.contractValue}">
         </div>
         <div class="form-group">
-          <label class="form-label">Início Previsto</label>
+          <label class="form-label">Endereço da Obra</label>
+          <input class="form-control" id="epj-address" value="${p.address || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cidade</label>
+          <input class="form-control" id="epj-city" value="${p.city || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nº da Proposta</label>
+          <input class="form-control" id="epj-proposal" value="${p.proposalNumber || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">E-mail de Contato</label>
+          <input class="form-control" id="epj-email" type="email" value="${p.contactEmail || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Forma de Pagamento</label>
+          <input class="form-control" id="epj-payment" value="${p.paymentMethod || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Data Base</label>
+          <input class="form-control" id="epj-basedate" type="date" value="${p.baseDate || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Validade da Proposta</label>
+          <input class="form-control" id="epj-validuntil" type="date" value="${p.proposalValidUntil || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Prazo de Execução</label>
+          <input class="form-control" id="epj-execdeadline" value="${p.executionDeadline || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Disponibilidade Início</label>
           <input class="form-control" id="epj-start" type="date" value="${p.startDate||''}">
         </div>
         <div class="form-group">
@@ -747,6 +831,14 @@ function openEditProjectModal(id) {
         status: document.getElementById('epj-status').value,
         physicalProgress: parseInt(document.getElementById('epj-progress').value) || 0,
         contractValue: parseFloat(document.getElementById('epj-value').value) || 0,
+        address: document.getElementById('epj-address').value,
+        city: document.getElementById('epj-city').value,
+        proposalNumber: document.getElementById('epj-proposal').value.trim() || null,
+        contactEmail: document.getElementById('epj-email').value.trim() || null,
+        paymentMethod: document.getElementById('epj-payment').value,
+        baseDate: document.getElementById('epj-basedate').value || null,
+        proposalValidUntil: document.getElementById('epj-validuntil').value || null,
+        executionDeadline: document.getElementById('epj-execdeadline').value.trim() || null,
         startDate: document.getElementById('epj-start').value || null,
         endDate: document.getElementById('epj-end').value || null,
         description: document.getElementById('epj-desc').value

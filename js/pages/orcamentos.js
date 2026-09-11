@@ -728,6 +728,7 @@ function openEditBudgetModal(id) {
 function convertBudgetToProject(budgetId) {
   const b = Store.getById('budgets', budgetId);
   if (!b) return;
+  const client = Store.getById('clients', b.clientId);
   confirmDialog({
     title: 'Aprovar Orçamento',
     message: `Marcar "${b.projectName}" como aprovado e criar a obra correspondente em Obras & Projetos?`,
@@ -749,6 +750,10 @@ function convertBudgetToProject(budgetId) {
         receivedValue: 0,
         costValue: b.materials + b.labor,
         paymentMethod: '',
+        proposalNumber: b.number,
+        contactEmail: client?.email || null,
+        baseDate: b.createdAt,
+        proposalValidUntil: b.validUntil,
         closedAt: new Date().toISOString().split('T')[0],
         startDate: null,
         endDate: null,

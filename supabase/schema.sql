@@ -90,6 +90,12 @@ create table public.projects (
   payment_method text,
   notes text,
   physical_progress int default 0,
+  -- dados de proposta/contrato (cabeçalho da obra)
+  proposal_number text,
+  contact_email text,
+  base_date date,
+  proposal_valid_until date,
+  execution_deadline text,
   created_at timestamptz default now(),
   updated_at timestamptz
 );
