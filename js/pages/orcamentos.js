@@ -198,9 +198,10 @@ function openBudgetDetail(id) {
         ` : `<p style="font-size:13px;color:var(--text-light);">${b.services || '—'}</p>`}
       </div>
       <div style="background:var(--gray-50);border-radius:10px;padding:16px;margin-bottom:16px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;text-align:center;">
           ${[
-            ['Valor do Produto', (b.materials||0) + (b.labor||0), false, false],
+            ['Materiais', b.materials||0, false, false],
+            ['Mão de Obra', b.labor||0, false, false],
             ['Desconto', b.discount||0, true, false],
             ['Valor Final', b.finalValue, false, true]
           ].map(([l, v, isDiscount, isFinal]) => `
