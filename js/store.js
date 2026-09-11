@@ -64,6 +64,27 @@ const Store = (() => {
     return localItem;
   }
 
+  // Como add(), mas espera a gravação real no banco terminar antes de
+  // devolver o item — use quando o PRÓXIMO insert depende desse registro
+  // já existir de verdade (chave estrangeira), por exemplo criar um
+  // serviço "pai" e, na sequência, seus sub-itens.
+  async function addAwait(entity, item) {
+    const id = makeUUID();
+    const localItem = { ...item, id, createdAt: new Date().toISOString().split('T')[0] };
+    cache[entity] = [...getList(entity), localItem];
+
+    const { error } = await sb.from(entity).insert(objToSnake({ ...item, id }));
+    if (error) {
+      console.error(`Erro ao inserir em "${entity}":`, error.message);
+      Toast.error('Erro ao salvar no banco', error.message);
+      cache[entity] = getList(entity).filter(i => i.id !== id);
+      if (window.rerender) window.rerender();
+      return null;
+    }
+
+    return localItem;
+  }
+
   function update(entity, id, changes) {
     cache[entity] = getList(entity).map(i => i.id === id ? { ...i, ...changes } : i);
 
@@ -299,7 +320,7 @@ const Store = (() => {
 
   return {
     init, getAll,
-    getList, getById, add, update, remove,
+    getList, getById, add, addAwait, update, remove,
     getMetrics, getProjectFinancials, getClientStats,
     resetToDemo,
     getRole, getRoleMeta, getRoleLabels, getCurrentUserLabel,

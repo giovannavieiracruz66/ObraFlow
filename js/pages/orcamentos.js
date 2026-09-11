@@ -234,8 +234,85 @@ function openBudgetDetail(id) {
       </div>
       ${b.notes ? `<div style="margin-top:12px;padding:12px;background:var(--warning-light);border-radius:8px;font-size:13px;color:var(--warning-dark);">📝 ${b.notes}</div>` : ''}
     `,
-    footer: `<button class="btn btn-outline" onclick="this.closest('.modal-overlay').remove()">Fechar</button>`
+    footer: `
+      <button class="btn btn-outline" onclick="printBudgetPDF('${b.id}')">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2m-12 0h12v6H6v-6z"/></svg>
+        Emitir PDF
+      </button>
+      <button class="btn btn-outline" onclick="this.closest('.modal-overlay').remove()">Fechar</button>
+    `
   });
+}
+
+function printBudgetPDF(budgetId) {
+  const b = Store.getById('budgets', budgetId);
+  if (!b) return;
+  const client = Store.getById('clients', b.clientId);
+
+  const win = window.open('', '_blank');
+  if (!win) { Toast.error('Bloqueado pelo navegador', 'Permita pop-ups para emitir o PDF.'); return; }
+
+  win.document.write(`
+    <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Orçamento ${b.number}</title>
+        <style>
+          body { font-family: Arial, Helvetica, sans-serif; padding: 48px; color: #1a1a1a; }
+          h1 { font-size: 22px; margin: 0 0 4px; }
+          .muted { color: #666; font-size: 13px; margin-bottom: 2px; }
+          .header-row { display:flex; justify-content:space-between; margin-bottom: 24px; padding-bottom:16px; border-bottom: 2px solid #111; }
+          table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+          th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #ddd; font-size: 13px; }
+          th { background: #f5f5f5; text-transform: uppercase; font-size: 11px; letter-spacing: .04em; }
+          .sub-row td:first-child { padding-left: 28px; color: #666; }
+          .totals { margin-top: 24px; margin-left: auto; width: 280px; }
+          .totals div { display:flex; justify-content:space-between; padding: 4px 0; font-size: 13px; }
+          .totals .final { font-size: 18px; font-weight: bold; border-top: 2px solid #111; margin-top: 6px; padding-top: 8px; }
+          .notes { margin-top: 32px; font-size: 12px; color: #555; }
+          @media print { body { padding: 24px; } }
+        </style>
+      </head>
+      <body>
+        <div class="header-row">
+          <div>
+            <h1>Orçamento ${b.number}</h1>
+            <div class="muted">${b.projectName}</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="muted">Criado em: ${fmt.date(b.createdAt)}</div>
+            <div class="muted">Válido até: ${fmt.date(b.validUntil)}</div>
+          </div>
+        </div>
+
+        <div class="muted"><strong>Cliente:</strong> ${client?.name || '—'}${client?.company ? ' — ' + client.company : ''}</div>
+        ${client?.phone ? `<div class="muted"><strong>Telefone:</strong> ${client.phone}</div>` : ''}
+        ${client?.email ? `<div class="muted"><strong>E-mail:</strong> ${client.email}</div>` : ''}
+
+        <table>
+          <thead><tr><th>Serviço</th><th>Valor</th></tr></thead>
+          <tbody>
+            ${b.serviceItems && b.serviceItems.length ? b.serviceItems.map(it => `
+              <tr><td>${it.name}</td><td>${fmt.currency(it.value)}</td></tr>
+              ${(it.subItems || []).map(sub => `<tr class="sub-row"><td>${sub.name}</td><td>${fmt.currency(sub.value)}</td></tr>`).join('')}
+            `).join('') : `<tr><td colspan="2">${b.services || '—'}</td></tr>`}
+          </tbody>
+        </table>
+
+        <div class="totals">
+          <div><span>Materiais</span><span>${fmt.currency(b.materials)}</span></div>
+          <div><span>Mão de Obra</span><span>${fmt.currency(b.labor)}</span></div>
+          ${b.discount ? `<div><span>Desconto</span><span>- ${fmt.currency(b.discount)}</span></div>` : ''}
+          <div class="final"><span>Valor Final</span><span>${fmt.currency(b.finalValue)}</span></div>
+        </div>
+
+        ${b.notes ? `<div class="notes"><strong>Observações:</strong> ${b.notes}</div>` : ''}
+      </body>
+    </html>
+  `);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 300);
 }
 
 window.handleBudgetUpload = async function(id, input) {
@@ -578,8 +655,11 @@ function convertBudgetToProject(budgetId) {
     message: `Marcar "${b.projectName}" como aprovado e criar a obra correspondente em Obras & Projetos?`,
     confirmText: 'Aprovar e Criar Obra',
     type: 'warning',
-    onConfirm: () => {
-      const project = Store.add('projects', {
+    onConfirm: async () => {
+      // Usa addAwait aqui: cada inserção precisa existir de verdade no banco
+      // antes da próxima (obra -> serviço pai -> sub-item), senão a chave
+      // estrangeira falha por causa da ordem de chegada das requisições.
+      const project = await Store.addAwait('projects', {
         name: b.projectName,
         clientId: b.clientId,
         responsible: Store.getCurrentUserLabel(),
@@ -598,24 +678,28 @@ function convertBudgetToProject(budgetId) {
         notes: `Gerado a partir do orçamento ${b.number}`,
         physicalProgress: 0
       });
+      if (!project) return;
+
       Store.update('budgets', budgetId, { status: 'aprovado' });
 
-      (b.serviceItems || []).forEach(item => {
-        const parent = Store.add('project_services', {
+      for (const item of (b.serviceItems || [])) {
+        const parent = await Store.addAwait('project_services', {
           projectId: project.id,
           name: item.name,
           budgetedValue: item.value || 0,
           parentId: null
         });
-        (item.subItems || []).forEach(sub => {
-          Store.add('project_services', {
+        if (!parent) continue;
+
+        for (const sub of (item.subItems || [])) {
+          await Store.addAwait('project_services', {
             projectId: project.id,
             name: sub.name,
             budgetedValue: sub.value || 0,
             parentId: parent.id
           });
-        });
-      });
+        }
+      }
 
       Toast.success('Obra criada!', `${b.projectName} foi adicionado como novo projeto.`);
       openProjectDetail(project.id);

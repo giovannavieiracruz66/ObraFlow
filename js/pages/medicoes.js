@@ -111,6 +111,9 @@ function renderMedicContent() {
         <td>${badge('measurement', m.status)}</td>
         <td>
           <div style="display:flex;gap:4px;">
+            <button class="btn btn-sm btn-ghost" title="Emitir PDF" onclick="printMeasurementPDF('${m.id}')">
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2m-12 0h12v6H6v-6z"/></svg>
+            </button>
             <button class="btn btn-sm btn-ghost" onclick="openEditMeasurementModal('${m.id}')">
               <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
             </button>
@@ -292,15 +295,15 @@ function readMedServiceAllocations(prefix) {
     .filter(a => a.percentage > 0);
 }
 
-function saveMedServiceAllocations(measurementId, allocations) {
-  allocations.forEach(a => {
-    Store.add('measurement_services', {
+async function saveMedServiceAllocations(measurementId, allocations) {
+  for (const a of allocations) {
+    await Store.addAwait('measurement_services', {
       measurementId,
       projectServiceId: a.projectServiceId,
       percentage: a.percentage,
       value: a.budgetedValue * a.percentage / 100
     });
-  });
+  }
 }
 
 function openNewMeasurementModal(preProjectId = '') {
@@ -376,13 +379,13 @@ function openNewMeasurementModal(preProjectId = '') {
     computeAndRenderMedSummary('med');
     renderMedServiceAlloc('med', preProjectId);
     document.getElementById('modal-cancel')?.addEventListener('click', close);
-    document.getElementById('modal-save')?.addEventListener('click', () => {
+    document.getElementById('modal-save')?.addEventListener('click', async () => {
       const projectId = document.getElementById('med-project').value;
       if (!projectId) { Toast.error('Campo obrigatório', 'Selecione a obra.'); return; }
       const b = computeAndRenderMedSummary('med');
       const allocations = readMedServiceAllocations('med');
       const existingMeds = Store.getList('measurements').filter(m => m.projectId === projectId);
-      const measurement = Store.add('measurements', {
+      const measurement = await Store.addAwait('measurements', {
         number: existingMeds.length + 1,
         projectId,
         period: document.getElementById('med-period').value,
@@ -404,7 +407,8 @@ function openNewMeasurementModal(preProjectId = '') {
         description: document.getElementById('med-desc').value,
         notes: document.getElementById('med-notes').value
       });
-      saveMedServiceAllocations(measurement.id, allocations);
+      if (!measurement) return;
+      await saveMedServiceAllocations(measurement.id, allocations);
       close();
       Toast.success('Medição cadastrada!');
       renderMedicoes();
@@ -474,7 +478,7 @@ function openEditMeasurementModal(id) {
     computeAndRenderMedSummary('emed');
     renderMedServiceAlloc('emed', m.projectId, m.id);
     document.getElementById('modal-cancel')?.addEventListener('click', close);
-    document.getElementById('modal-save')?.addEventListener('click', () => {
+    document.getElementById('modal-save')?.addEventListener('click', async () => {
       const b = computeAndRenderMedSummary('emed');
       const allocations = readMedServiceAllocations('emed');
       Store.update('measurements', id, {
@@ -497,13 +501,101 @@ function openEditMeasurementModal(id) {
       });
 
       Store.getList('measurement_services').filter(a => a.measurementId === id).forEach(a => Store.remove('measurement_services', a.id));
-      saveMedServiceAllocations(id, allocations);
+      await saveMedServiceAllocations(id, allocations);
 
       close();
       Toast.success('Medição atualizada!');
       renderMedicoes();
     });
   }, 50);
+}
+
+function printMeasurementPDF(measurementId) {
+  const m = Store.getById('measurements', measurementId);
+  if (!m) return;
+  const project = Store.getById('projects', m.projectId);
+  const client = project ? Store.getById('clients', project.clientId) : null;
+  const b = getMeasurementBreakdown(m);
+
+  const allocations = Store.getList('measurement_services')
+    .filter(a => a.measurementId === measurementId)
+    .map(a => ({ ...a, serviceName: Store.getById('project_services', a.projectServiceId)?.name || '—' }));
+
+  const win = window.open('', '_blank');
+  if (!win) { Toast.error('Bloqueado pelo navegador', 'Permita pop-ups para emitir o PDF.'); return; }
+
+  win.document.write(`
+    <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Medição ${m.number} - ${project?.name || ''}</title>
+        <style>
+          body { font-family: Arial, Helvetica, sans-serif; padding: 48px; color: #1a1a1a; }
+          h1 { font-size: 22px; margin: 0 0 4px; }
+          .muted { color: #666; font-size: 13px; margin-bottom: 2px; }
+          .header-row { display:flex; justify-content:space-between; margin-bottom: 24px; padding-bottom:16px; border-bottom: 2px solid #111; }
+          table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+          th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #ddd; font-size: 13px; }
+          th { background: #f5f5f5; text-transform: uppercase; font-size: 11px; letter-spacing: .04em; }
+          .breakdown { margin-top: 24px; margin-left: auto; width: 320px; }
+          .breakdown div { display:flex; justify-content:space-between; padding: 4px 0; font-size: 13px; }
+          .breakdown .bold { font-weight: bold; }
+          .breakdown .border { border-top: 1px solid #ddd; margin-top: 6px; padding-top: 8px; }
+          .breakdown .final { font-size: 18px; font-weight: bold; border-top: 2px solid #111; margin-top: 6px; padding-top: 8px; }
+          .approval { margin-top: 60px; display: flex; justify-content: space-between; }
+          .approval div { width: 45%; border-top: 1px solid #444; text-align: center; padding-top: 6px; font-size: 12px; color: #555; }
+          .notes { margin-top: 32px; font-size: 12px; color: #555; }
+          @media print { body { padding: 24px; } }
+        </style>
+      </head>
+      <body>
+        <div class="header-row">
+          <div>
+            <h1>Medição #${m.number}</h1>
+            <div class="muted">${project?.name || '—'}</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="muted">Período: ${m.period || '—'}</div>
+            <div class="muted">Data: ${fmt.date(m.date)}</div>
+          </div>
+        </div>
+
+        <div class="muted"><strong>Cliente:</strong> ${client?.name || '—'}${client?.company ? ' — ' + client.company : ''}</div>
+        ${m.description ? `<div class="muted" style="margin-top:8px;"><strong>Serviços realizados:</strong> ${m.description}</div>` : ''}
+
+        ${allocations.length ? `
+          <table>
+            <thead><tr><th>Serviço</th><th>% Executado nesta Medição</th><th>Valor</th></tr></thead>
+            <tbody>
+              ${allocations.map(a => `<tr><td>${a.serviceName}</td><td>${a.percentage.toFixed(1)}%</td><td>${fmt.currency(a.value)}</td></tr>`).join('')}
+            </tbody>
+          </table>
+        ` : ''}
+
+        <div class="breakdown">
+          <div><span>Total Mão de Obra</span><span>${fmt.currency(b.labor)}</span></div>
+          <div><span>Total Material</span><span>${fmt.currency(b.material)}</span></div>
+          <div class="bold border"><span>Total da Medição Bruta</span><span>${fmt.currency(b.gross)}</span></div>
+          <div class="border"><span>Desconto Faturamento Direto</span><span>- ${fmt.currency(b.discount)}</span></div>
+          <div class="bold border"><span>Subtotal</span><span>${fmt.currency(b.subtotal)}</span></div>
+          <div class="border"><span>Caução / Permuta</span><span>- ${fmt.currency(b.caution)}</span></div>
+          <div class="border"><span>Impostos (INSS + ISS)</span><span>- ${fmt.currency(b.totalTaxes)}</span></div>
+          <div class="final"><span>Total Líquido</span><span>${fmt.currency(b.net)}</span></div>
+          <div style="margin-top:10px;"><span>% Executado</span><span>${(m.percentage || 0).toFixed(1)}%</span></div>
+        </div>
+
+        ${m.notes ? `<div class="notes"><strong>Observações:</strong> ${m.notes}</div>` : ''}
+
+        <div class="approval">
+          <div>${project?.responsible || 'Responsável Técnico'}</div>
+          <div>${client?.name || 'Cliente'} (aprovação)</div>
+        </div>
+      </body>
+    </html>
+  `);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 300);
 }
 
 function deleteMeasurement(id) {
