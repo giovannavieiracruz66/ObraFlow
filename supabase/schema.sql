@@ -418,3 +418,41 @@ create policy "budget_attachments_read" on storage.objects for select
 
 create policy "budget_attachments_delete" on storage.objects for delete
   using (bucket_id = 'budget-attachments' and public.current_role() in ('admin','gestor','gestor_orcamentos'));
+
+
+-- ==========================================
+-- CATÁLOGO DE MATERIAIS
+-- ==========================================
+
+create table if not exists public.material_categories (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  created_at timestamptz default now()
+);
+
+alter table public.material_categories enable row level security;
+
+create policy "mat_cat_select" on public.material_categories
+  for select using (auth.uid() is not null);
+
+create policy "mat_cat_write" on public.material_categories
+  for all using (public.current_role() in ('admin','gestor','gestor_contratos'));
+
+create table if not exists public.materials (
+  id uuid primary key default gen_random_uuid(),
+  category_id uuid references public.material_categories(id) on delete set null,
+  name text not null,
+  sku text,
+  unit text default 'un',
+  default_price numeric default 0,
+  description text,
+  created_at timestamptz default now()
+);
+
+alter table public.materials enable row level security;
+
+create policy "materials_select" on public.materials
+  for select using (auth.uid() is not null);
+
+create policy "materials_write" on public.materials
+  for all using (public.current_role() in ('admin','gestor','gestor_contratos'));

@@ -1128,7 +1128,7 @@ function addOrderItemRow() {
   tr.className = 'order-item-row';
   tr.style.borderBottom = '1px solid var(--border-light, var(--border))';
   tr.innerHTML = `
-    <td style="padding:6px 8px;">
+    <td style="padding:6px 8px;position:relative;">
       <input class="form-control oi-item" placeholder="Ex: Cimento CP II, Aço CA50..." style="min-width:160px;">
     </td>
     <td style="padding:6px 8px;">
@@ -1151,7 +1151,17 @@ function addOrderItemRow() {
   `;
   tbody.appendChild(tr);
   _updateOrderItemsUI();
-  tr.querySelector('.oi-item').focus();
+
+  const itemInput = tr.querySelector('.oi-item');
+  if (typeof attachMatAutocomplete === 'function') {
+    attachMatAutocomplete(itemInput, (mat) => {
+      itemInput.value = mat.name;
+      tr.querySelector('.oi-sku').value = mat.sku || '';
+      tr.querySelector('.oi-unit').value = mat.unit || 'un';
+      if (mat.defaultPrice) tr.querySelector('.oi-value').value = mat.defaultPrice;
+    });
+  }
+  itemInput.focus();
 }
 
 function removeOrderItemRow(btn) {

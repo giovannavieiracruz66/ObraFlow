@@ -436,8 +436,12 @@ window.deleteBudgetAttachment = function(budgetId, path) {
 // === ITENS DE SERVIÇO (orçamento) ===
 function serviceSubItemRow(sub = {}, prefix) {
   const total = (sub.materialValue || 0) + (sub.laborValue || 0);
+  const hasCatalog = typeof openMaterialPickerModal === 'function' && Store.getList('materials').length > 0;
   return `
     <div class="svc-subitem-row" style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
+      ${hasCatalog ? `<button type="button" title="Buscar no catálogo" onclick="pickMaterialForSubItem(this)" style="flex-shrink:0;background:var(--primary-50,#eff6ff);border:1px solid var(--primary-200,#bfdbfe);border-radius:6px;cursor:pointer;padding:5px 7px;color:var(--primary-700,#1d4ed8);">
+        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12"/></svg>
+      </button>` : ''}
       <input class="form-control svc-subname" placeholder="Nome do sub-item (ex: Escavação)" value="${sub.name ? String(sub.name).replace(/"/g, '&quot;') : ''}" style="flex:2;font-size:13px;min-width:0;">
       <input class="form-control svc-subqty" type="number" placeholder="Qtd." value="${sub.quantity || ''}" style="flex:1;font-size:13px;min-width:0;" oninput="recalcServiceItemValue(this.closest('.service-item-block'))">
       <input class="form-control svc-subunit" placeholder="Unid. (m², kg...)" value="${sub.unit ? String(sub.unit).replace(/"/g, '&quot;') : ''}" style="flex:1;font-size:13px;min-width:0;">
@@ -944,5 +948,22 @@ function deleteBudget(id) {
       Toast.success('Orçamento excluído!');
       renderOrcamentos();
     }
+  });
+}
+
+// Abre o picker do catálogo e preenche o sub-item de serviço
+function pickMaterialForSubItem(btn) {
+  if (typeof openMaterialPickerModal !== 'function') return;
+  const row = btn.closest('.svc-subitem-row');
+  openMaterialPickerModal((mat) => {
+    const nameInput = row.querySelector('.svc-subname');
+    const unitInput = row.querySelector('.svc-subunit');
+    const materialInput = row.querySelector('.svc-submaterial');
+    if (nameInput) nameInput.value = mat.name;
+    if (unitInput) unitInput.value = mat.unit || 'un';
+    if (materialInput && mat.defaultPrice) materialInput.value = mat.defaultPrice;
+    // Recalcula o total do bloco pai
+    const block = row.closest('.service-item-block');
+    if (block) recalcServiceItemValue(block);
   });
 }
