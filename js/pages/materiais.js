@@ -56,23 +56,20 @@ function renderMateriais() {
   renderMatContent();
 }
 
+let matOpenCategories = new Set();
+
+function toggleMatCategory(catId) {
+  matOpenCategories.has(catId) ? matOpenCategories.delete(catId) : matOpenCategories.add(catId);
+  renderMatContent();
+}
+
 function renderMatContent() {
   const materials = Store.getList('materials');
   const categories = Store.getList('material_categories');
   const container = document.getElementById('mat-content');
   if (!container) return;
 
-  const q = matFilter.search.toLowerCase();
-  const filtered = materials.filter(m => {
-    const matchSearch = !q ||
-      m.name.toLowerCase().includes(q) ||
-      (m.sku || '').toLowerCase().includes(q) ||
-      (m.code || '').toLowerCase().includes(q);
-    const matchCat = !matFilter.categoryId || m.categoryId === matFilter.categoryId;
-    return matchSearch && matchCat;
-  });
-
-  if (!filtered.length && !materials.length) {
+  if (!categories.length) {
     container.innerHTML = `
       <div class="empty-state">
         <h3>Catálogo vazio</h3>
@@ -83,77 +80,81 @@ function renderMatContent() {
     return;
   }
 
-  if (!filtered.length) {
-    container.innerHTML = `<div class="empty-state"><h3>Nenhum material encontrado</h3><p>Tente ajustar os filtros ou a busca.</p></div>`;
-    return;
-  }
+  const q = matFilter.search.toLowerCase();
+  const hasFilter = q.length > 0 || !!matFilter.categoryId;
 
-  const grouped = {};
-  filtered.forEach(m => {
-    const key = m.categoryId || '__sem_categoria__';
-    if (!grouped[key]) grouped[key] = [];
-    grouped[key].push(m);
-  });
+  const catsToShow = matFilter.categoryId
+    ? categories.filter(c => c.id === matFilter.categoryId)
+    : categories;
 
-  const getCat = id => categories.find(c => c.id === id);
+  container.innerHTML = catsToShow.map(cat => {
+    const allMats = materials.filter(m => m.categoryId === cat.id);
+    const mats = hasFilter ? allMats.filter(m =>
+      !q ||
+      m.name.toLowerCase().includes(q) ||
+      (m.code || '').toLowerCase().includes(q) ||
+      (m.sku || '').toLowerCase().includes(q)
+    ) : allMats;
 
-  container.innerHTML = Object.entries(grouped).map(([catId, mats]) => {
-    const cat = getCat(catId);
+    const isOpen = hasFilter ? mats.length > 0 : matOpenCategories.has(cat.id);
+
     return `
-    <div class="card" style="margin-bottom:16px;">
-      <div class="card-header" style="padding:12px 20px;">
-        <div class="card-title" style="display:flex;align-items:center;gap:8px;">
-          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12"/></svg>
-          ${cat ? `<span style="font-family:monospace;font-size:11px;background:var(--primary-100,#dbeafe);color:var(--primary-700,#1d4ed8);padding:2px 6px;border-radius:4px;font-weight:700;">${cat.code || '???'}</span>` : ''}
-          ${cat?.name || 'Sem Categoria'}
-          <span class="badge badge-gray" style="font-size:11px;">${mats.length}</span>
+    <div class="card" style="margin-bottom:10px;overflow:hidden;">
+      <div onclick="toggleMatCategory('${cat.id}')" style="padding:14px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;" onmouseenter="this.style.background='var(--gray-50)'" onmouseleave="this.style.background=''">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="color:var(--text-muted);transition:transform .2s;transform:rotate(${isOpen ? 90 : 0}deg);flex-shrink:0;"><polyline points="9 18 15 12 9 6"/></svg>
+          ${cat.code ? `<span style="font-family:monospace;font-size:11px;background:var(--primary-100,#dbeafe);color:var(--primary-700,#1d4ed8);padding:3px 8px;border-radius:4px;font-weight:700;letter-spacing:.5px;">${cat.code}</span>` : ''}
+          <span style="font-weight:700;font-size:14px;">${cat.name}</span>
+          <span class="badge badge-gray">${allMats.length} ${allMats.length === 1 ? 'material' : 'materiais'}</span>
         </div>
-        ${canWrite() && catId !== '__sem_categoria__' ? `
-        <div style="display:flex;gap:8px;">
-          <button class="btn btn-sm btn-outline" onclick="openNewMaterialModal('${catId}')">+ Material</button>
-          <button class="btn btn-sm btn-ghost" style="color:var(--text-muted);" onclick="openEditMatCategoryModal('${catId}')">Editar categoria</button>
-        </div>` : ''}
+        <div style="display:flex;gap:8px;" onclick="event.stopPropagation()">
+          ${canWrite() ? `
+          <button class="btn btn-sm btn-outline" onclick="openNewMaterialModal('${cat.id}')">+ Material</button>
+          <button class="btn btn-sm btn-ghost" style="color:var(--text-muted);" onclick="openEditMatCategoryModal('${cat.id}')">Editar</button>` : ''}
+        </div>
       </div>
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
+
+      ${isOpen ? `<div style="border-top:1px solid var(--border);">
+        ${mats.length === 0 ? `
+          <div style="padding:20px 24px;color:var(--text-muted);font-size:13px;text-align:center;">
+            Nenhum material nesta categoria.
+            ${canWrite() ? `<button class="btn btn-sm btn-outline" style="margin-left:10px;" onclick="openNewMaterialModal('${cat.id}')">Adicionar</button>` : ''}
+          </div>
+        ` : `
+        <div class="table-wrapper" style="margin:0;">
+          <table>
+            <thead><tr>
               <th style="width:110px;">CÓDIGO</th>
               <th>MATERIAL</th>
               <th style="width:100px;">SKU</th>
               <th style="width:80px;">UNIDADE</th>
               <th style="width:130px;">PREÇO PADRÃO</th>
               <th>DESCRIÇÃO</th>
-              ${canWrite() ? '<th style="width:100px;"></th>' : ''}
-            </tr>
-          </thead>
-          <tbody>
-            ${mats.map(m => `
-              <tr>
-                <td>
-                  <span style="font-family:monospace;font-size:12px;font-weight:700;background:var(--gray-100);padding:3px 8px;border-radius:4px;letter-spacing:.5px;">${m.code || '—'}</span>
-                </td>
-                <td class="td-main">${m.name}</td>
-                <td><span style="font-family:monospace;font-size:12px;">${m.sku || '—'}</span></td>
-                <td>${m.unit || 'un'}</td>
-                <td style="font-weight:600;">${m.defaultPrice ? fmt.currency(m.defaultPrice) : '—'}</td>
-                <td class="td-muted">${m.description || '—'}</td>
-                ${canWrite() ? `
-                <td>
-                  <div style="display:flex;gap:6px;">
+              ${canWrite() ? '<th style="width:110px;"></th>' : ''}
+            </tr></thead>
+            <tbody>
+              ${mats.map(m => `
+                <tr>
+                  <td><span style="font-family:monospace;font-size:12px;font-weight:700;background:var(--gray-100);padding:3px 8px;border-radius:4px;letter-spacing:.5px;">${m.code || '—'}</span></td>
+                  <td class="td-main">${m.name}</td>
+                  <td><span style="font-family:monospace;font-size:12px;">${m.sku || '—'}</span></td>
+                  <td>${m.unit || 'un'}</td>
+                  <td style="font-weight:600;">${m.defaultPrice ? fmt.currency(m.defaultPrice) : '—'}</td>
+                  <td class="td-muted">${m.description || '—'}</td>
+                  ${canWrite() ? `<td><div style="display:flex;gap:6px;">
                     <button class="btn btn-sm btn-outline" onclick="openEditMaterialModal('${m.id}')">Editar</button>
                     <button class="btn btn-sm btn-ghost" style="color:var(--danger);" onclick="deleteMaterial('${m.id}')">
                       <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
                     </button>
-                  </div>
-                </td>` : ''}
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `}).join('');
+                  </div></td>` : ''}
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>`}
+      </div>` : ''}
+    </div>`;
+  }).join('');
 }
 
 // === CATEGORIA ===
