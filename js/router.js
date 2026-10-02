@@ -31,7 +31,7 @@ const ROLE_PAGES = {
   // Gestor de Contratos: execução da obra + almoxarifado.
   gestor_contratos: ['dashboard', 'obras', 'medicoes', 'cronograma', 'clientes', 'notificacoes', 'almoxarifado-dashboard', 'almoxarifado-previsao', 'almoxarifado-recebimento', 'almoxarifado-historico', 'materiais'],
   // Gestor de Orçamentos: fase comercial + obras já convertidas.
-  gestor_orcamentos: ['dashboard', 'orcamentos', 'clientes', 'obras', 'notificacoes'],
+  gestor_orcamentos: ['dashboard', 'orcamentos', 'clientes', 'obras', 'notificacoes', 'materiais'],
   // Financeiro: pagamentos, faturamento e propostas em aberto.
   financeiro: ['dashboard', 'financeiro', 'medicoes', 'relatorios', 'orcamentos', 'notificacoes']
 };
