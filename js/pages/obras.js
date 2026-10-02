@@ -1024,73 +1024,157 @@ function openNewSupplierModal(prefix) {
 }
 
 function openNewOrderModal(projectId) {
+  const MAX_ITEMS = 20;
+
   const { close } = Modal.create({
     title: 'Novo Pedido',
-    size: 'modal-lg',
+    size: 'modal-xl',
     body: `
-      <div class="form-grid">
-        <div class="form-group form-col-span-2">
-          <label class="form-label">Item / Descrição *</label>
-          <input class="form-control" id="ord-item" placeholder="Ex: Cimento CP II, Aço CA50, etc.">
-        </div>
-        <div class="form-group">
-          <label class="form-label">SKU / Código</label>
-          <input class="form-control" id="ord-sku" placeholder="Ex: CIM-CPII-50">
-        </div>
+      <div class="form-grid" style="margin-bottom:20px;">
         ${supplierFieldHTML('ord')}
-        <div class="form-group">
-          <label class="form-label">Unidade de Medida</label>
-          <input class="form-control" id="ord-unit" placeholder="Ex: kg, un, m³" value="un">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Quantidade Total *</label>
-          <input class="form-control" id="ord-qty" type="number" placeholder="0" min="1">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Valor Unitário (R$)</label>
-          <input class="form-control" id="ord-unit-value" type="number" placeholder="0">
-        </div>
         <div class="form-group">
           <label class="form-label">Previsão de Entrega</label>
           <input class="form-control" id="ord-expected" type="date">
         </div>
-        <div class="form-group form-col-span-2">
-          <label class="form-label">Observações</label>
-          <textarea class="form-control" id="ord-notes" rows="2" placeholder="Observações sobre o pedido..."></textarea>
-        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <span class="form-label" style="margin:0;">Itens do Pedido *</span>
+        <button type="button" class="btn btn-sm btn-outline" id="add-order-item-btn" onclick="addOrderItemRow()">+ Adicionar Item</button>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;" id="order-items-table">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border);">
+              <th style="text-align:left;padding:6px 8px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Item / Descrição *</th>
+              <th style="text-align:left;padding:6px 8px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;width:120px;">SKU</th>
+              <th style="text-align:left;padding:6px 8px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;width:80px;">Unidade</th>
+              <th style="text-align:left;padding:6px 8px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;width:110px;">Quantidade *</th>
+              <th style="text-align:left;padding:6px 8px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;width:130px;">Valor Unit. (R$)</th>
+              <th style="width:36px;"></th>
+            </tr>
+          </thead>
+          <tbody id="order-items-body"></tbody>
+        </table>
+      </div>
+
+      <div id="order-items-count" style="font-size:12px;color:var(--text-muted);margin-top:6px;text-align:right;">1 / 20 itens</div>
+
+      <div class="form-group" style="margin-top:16px;">
+        <label class="form-label">Observações</label>
+        <textarea class="form-control" id="ord-notes" rows="2" placeholder="Observações sobre o pedido..."></textarea>
       </div>
     `,
     footer: `
       <button class="btn btn-outline" id="modal-cancel">Cancelar</button>
-      <button class="btn btn-primary" id="modal-save">Salvar</button>
+      <button class="btn btn-primary" id="modal-save">Salvar Pedido(s)</button>
     `
   });
+
+  window._orderMaxItems = MAX_ITEMS;
+  addOrderItemRow();
 
   setTimeout(() => {
     document.getElementById('modal-cancel')?.addEventListener('click', close);
     document.getElementById('modal-save')?.addEventListener('click', () => {
-      const item = document.getElementById('ord-item').value.trim();
-      const qty = parseFloat(document.getElementById('ord-qty').value);
-      if (!item || !qty) { Toast.error('Campos obrigatórios', 'Informe a descrição e quantidade.'); return; }
+      const supplier = document.getElementById('ord-supplier').value || null;
+      const expectedDate = document.getElementById('ord-expected').value || null;
+      const notes = document.getElementById('ord-notes').value;
 
-      Store.add('orders', {
-        projectId,
-        item,
-        sku: document.getElementById('ord-sku').value.trim() || null,
-        supplier: document.getElementById('ord-supplier').value || null,
-        unit: document.getElementById('ord-unit').value || 'un',
-        quantity: qty,
-        delivered: 0,
-        unitValue: parseFloat(document.getElementById('ord-unit-value').value) || 0,
-        expectedDate: document.getElementById('ord-expected').value || null,
-        notes: document.getElementById('ord-notes').value
+      const rows = document.querySelectorAll('#order-items-body .order-item-row');
+      if (!rows.length) { Toast.error('Nenhum item', 'Adicione ao menos um item ao pedido.'); return; }
+
+      const items = [];
+      let hasError = false;
+      rows.forEach(row => {
+        const item = row.querySelector('.oi-item').value.trim();
+        const qty = parseFloat(row.querySelector('.oi-qty').value);
+        if (!item || !qty || qty <= 0) { hasError = true; return; }
+        items.push({
+          item,
+          sku: row.querySelector('.oi-sku').value.trim() || null,
+          unit: row.querySelector('.oi-unit').value.trim() || 'un',
+          quantity: qty,
+          unitValue: parseFloat(row.querySelector('.oi-value').value) || 0,
+        });
       });
+
+      if (hasError || !items.length) {
+        Toast.error('Campos obrigatórios', 'Preencha item e quantidade (> 0) em todas as linhas.');
+        return;
+      }
+
+      items.forEach(itm => {
+        Store.add('orders', { projectId, supplier, expectedDate, notes, delivered: 0, ...itm });
+      });
+
       close();
-      Toast.success('Pedido adicionado!');
+      Toast.success(`${items.length} pedido(s) adicionado(s)!`);
       openProjectDetail(projectId);
       showProjectTab('orders', projectId);
     });
   }, 50);
+}
+
+function addOrderItemRow() {
+  const tbody = document.getElementById('order-items-body');
+  if (!tbody) return;
+  const count = tbody.querySelectorAll('.order-item-row').length;
+  const max = window._orderMaxItems || 20;
+  if (count >= max) { Toast.warning('Limite atingido', `Máximo de ${max} itens por pedido.`); return; }
+
+  const tr = document.createElement('tr');
+  tr.className = 'order-item-row';
+  tr.style.borderBottom = '1px solid var(--border-light, var(--border))';
+  tr.innerHTML = `
+    <td style="padding:6px 8px;">
+      <input class="form-control oi-item" placeholder="Ex: Cimento CP II, Aço CA50..." style="min-width:160px;">
+    </td>
+    <td style="padding:6px 8px;">
+      <input class="form-control oi-sku" placeholder="CIM-CPII-50">
+    </td>
+    <td style="padding:6px 8px;">
+      <input class="form-control oi-unit" placeholder="un" value="un">
+    </td>
+    <td style="padding:6px 8px;">
+      <input class="form-control oi-qty" type="number" placeholder="0" min="1">
+    </td>
+    <td style="padding:6px 8px;">
+      <input class="form-control oi-value" type="number" placeholder="0">
+    </td>
+    <td style="padding:6px 4px;text-align:center;">
+      <button type="button" onclick="removeOrderItemRow(this)" style="background:none;border:none;cursor:pointer;color:var(--danger);padding:4px;border-radius:4px;display:flex;align-items:center;justify-content:center;" title="Remover">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </td>
+  `;
+  tbody.appendChild(tr);
+  _updateOrderItemsUI();
+  tr.querySelector('.oi-item').focus();
+}
+
+function removeOrderItemRow(btn) {
+  const tbody = document.getElementById('order-items-body');
+  if (!tbody) return;
+  const count = tbody.querySelectorAll('.order-item-row').length;
+  if (count <= 1) { Toast.warning('Mínimo de 1 item', 'O pedido precisa ter ao menos um item.'); return; }
+  btn.closest('.order-item-row').remove();
+  _updateOrderItemsUI();
+}
+
+function _updateOrderItemsUI() {
+  const tbody = document.getElementById('order-items-body');
+  const addBtn = document.getElementById('add-order-item-btn');
+  const countEl = document.getElementById('order-items-count');
+  if (!tbody) return;
+  const count = tbody.querySelectorAll('.order-item-row').length;
+  const max = window._orderMaxItems || 20;
+  if (addBtn) {
+    addBtn.disabled = count >= max;
+    addBtn.textContent = count >= max ? 'Limite atingido' : '+ Adicionar Item';
+  }
+  if (countEl) countEl.textContent = `${count} / ${max} itens`;
 }
 
 function openEditOrderModal(orderId, projectId) {
