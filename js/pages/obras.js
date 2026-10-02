@@ -1156,7 +1156,8 @@ function addOrderItemRow() {
   if (typeof attachMatAutocomplete === 'function') {
     attachMatAutocomplete(itemInput, (mat) => {
       itemInput.value = mat.name;
-      tr.querySelector('.oi-sku').value = mat.sku || '';
+      itemInput.dataset.matCode = mat.code || '';
+      tr.querySelector('.oi-sku').value = mat.code || mat.sku || '';
       tr.querySelector('.oi-unit').value = mat.unit || 'un';
       if (mat.defaultPrice) tr.querySelector('.oi-value').value = mat.defaultPrice;
     });
