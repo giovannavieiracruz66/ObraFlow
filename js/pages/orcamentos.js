@@ -364,7 +364,6 @@ function printBudgetPDF(budgetId) {
         </table>
 
         <div class="totals">
-          <div><span>Valor do Produto</span><span>${fmt.currency((b.materials||0) + (b.labor||0))}</span></div>
           ${b.discount ? `<div><span>Desconto</span><span>- ${fmt.currency(b.discount)}</span></div>` : ''}
           <div class="final"><span>Valor da Proposta</span><span>${fmt.currency(b.finalValue)}</span></div>
         </div>
