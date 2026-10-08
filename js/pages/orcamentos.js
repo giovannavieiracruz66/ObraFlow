@@ -249,7 +249,12 @@ function openBudgetDetail(id) {
         ${badge('budget', b.status)}
         ${canWrite() && !['recusado', 'expirado'].includes(b.status) ? `<button class="btn btn-sm btn-accent" onclick="convertBudgetToProject('${b.id}')">✓ Orçamento Aprovado</button>` : ''}
       </div>
-      ${b.notes ? `<div style="margin-top:12px;padding:12px;background:var(--warning-light);border-radius:8px;font-size:13px;color:var(--warning-dark);">📝 ${b.notes}</div>` : ''}
+      ${b.notes ? `<div style="margin-top:12px;padding:12px 16px;background:var(--warning-light);border-radius:8px;font-size:13px;color:var(--warning-dark);">
+        <div style="font-weight:600;margin-bottom:6px;">📝 Observações</div>
+        <ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;">
+          ${b.notes.split(';').map(s => s.trim()).filter(Boolean).map(s => `<li>${s}</li>`).join('')}
+        </ul>
+      </div>` : ''}
     `,
     footer: `
       <button class="btn btn-outline" onclick="printBudgetPDF('${b.id}')">
@@ -364,7 +369,7 @@ function printBudgetPDF(budgetId) {
           <div class="final"><span>Valor Final</span><span>${fmt.currency(b.finalValue)}</span></div>
         </div>
 
-        ${b.notes ? `<div class="notes"><strong>Observações:</strong> ${b.notes}</div>` : ''}
+        ${b.notes ? `<div class="notes"><strong>Observações:</strong><ul style="margin:4px 0 0 0;padding-left:18px;">${b.notes.split(';').map(s => s.trim()).filter(Boolean).map(s => `<li>${s}</li>`).join('')}</ul></div>` : ''}
       </body>
     </html>
   `);
