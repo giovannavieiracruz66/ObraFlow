@@ -204,7 +204,7 @@ function openBudgetDetail(id) {
             ['Materiais', b.materials||0, false, false],
             ['Mão de Obra', b.labor||0, false, false],
             ['Desconto', b.discount||0, true, false],
-            ['Valor Final', b.finalValue, false, true]
+            ['Valor da Proposta', b.finalValue, false, true]
           ].map(([l, v, isDiscount, isFinal]) => `
             <div>
               <div style="font-size:11px;color:var(--text-faint);">${l}</div>
@@ -366,7 +366,7 @@ function printBudgetPDF(budgetId) {
         <div class="totals">
           <div><span>Valor do Produto</span><span>${fmt.currency((b.materials||0) + (b.labor||0))}</span></div>
           ${b.discount ? `<div><span>Desconto</span><span>- ${fmt.currency(b.discount)}</span></div>` : ''}
-          <div class="final"><span>Valor Final</span><span>${fmt.currency(b.finalValue)}</span></div>
+          <div class="final"><span>Valor da Proposta</span><span>${fmt.currency(b.finalValue)}</span></div>
         </div>
 
         ${b.notes ? `<div class="notes"><strong>Observações:</strong><ul style="margin:4px 0 0 0;padding-left:18px;">${b.notes.split(';').map(s => s.trim()).filter(Boolean).map(s => `<li>${s}</li>`).join('')}</ul></div>` : ''}
