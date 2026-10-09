@@ -234,7 +234,8 @@ function getOrderStatus(order) {
 }
 
 // === PAGINATION ===
-function paginate({ items, page, perPage = 10, containerId, renderRow, tableId }) {
+function paginate({ items, page, perPage = 10, containerId, renderRow, tableId, onPageChange }) {
+  if (onPageChange) _pageCallbacks[containerId] = onPageChange;
   const total = items.length;
   const totalPages = Math.ceil(total / perPage);
   const start = (page - 1) * perPage;
@@ -317,7 +318,9 @@ document.addEventListener('click', e => {
 
 // Global page change handler
 const paginationState = {};
+const _pageCallbacks = {};
+
 function changePage(id, page) {
   paginationState[id] = page;
-  if (window.rerender) window.rerender();
+  if (_pageCallbacks[id]) _pageCallbacks[id](page);
 }

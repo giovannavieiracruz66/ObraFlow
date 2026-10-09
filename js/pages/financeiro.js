@@ -154,6 +154,7 @@ function renderFinContent() {
     perPage: 12,
     containerId: 'fin',
     tableId: 'fin-table',
+    onPageChange: (p) => { finFilter.page = p; renderFinContent(); },
     renderRow: f => `
       <tr>
         <td class="td-main">${getClientName(f.clientId)}</td>

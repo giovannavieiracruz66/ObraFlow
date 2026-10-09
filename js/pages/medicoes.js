@@ -93,6 +93,7 @@ function renderMedicContent() {
     perPage: 10,
     containerId: 'medic',
     tableId: 'medic-table',
+    onPageChange: (p) => { medicFilter.page = p; renderMedicContent(); },
     renderRow: m => {
       const b = getMeasurementBreakdown(m);
       return `

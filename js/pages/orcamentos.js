@@ -116,6 +116,7 @@ function renderOrcContent() {
     perPage: 10,
     containerId: 'orc',
     tableId: 'orc-table',
+    onPageChange: (p) => { orcFilter.page = p; renderOrcContent(); },
     renderRow: b => `
       <tr>
         <td class="td-main">${b.number}</td>
