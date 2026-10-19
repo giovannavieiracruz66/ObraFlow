@@ -32,7 +32,7 @@ function renderClientes() {
     </div>
 
     <!-- GRID -->
-    <div id="client-content" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px;align-items:start;"></div>
+    <div id="client-content" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:20px;"></div>
     <div id="client-pag"></div>
   `;
 
