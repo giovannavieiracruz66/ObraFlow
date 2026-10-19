@@ -190,6 +190,10 @@
   padding: var(--space-6);
   transition: all var(--transition);
   cursor: pointer;
+  overflow: hidden;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 .client-card:hover {
   border-color: var(--accent);
@@ -207,6 +211,7 @@
   font-weight: 800;
   color: white;
   margin-bottom: var(--space-4);
+  flex-shrink: 0;
 }
 
 .client-name {
@@ -214,11 +219,16 @@
   font-weight: 700;
   color: var(--text);
   margin-bottom: 2px;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
 }
 .client-company {
   font-size: var(--text-xs);
   color: var(--text-muted);
   margin-bottom: var(--space-4);
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .client-stats {
