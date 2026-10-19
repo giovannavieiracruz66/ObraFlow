@@ -8,7 +8,7 @@
 // ==========================================
 
 const Store = (() => {
-  const TABLES = ['clients', 'projects', 'measurements', 'budgets', 'financial', 'orders', 'order_receipts', 'notifications', 'project_services', 'measurement_services', 'suppliers', 'material_categories', 'materials'];
+  const TABLES = ['clients', 'projects', 'measurements', 'budgets', 'financial', 'orders', 'order_receipts', 'notifications', 'project_services', 'measurement_services', 'suppliers', 'material_categories', 'materials', 'payments'];
   let cache = {};
 
   function camelize(str) { return str.replace(/_([a-z0-9])/g, (_, c) => c.toUpperCase()); }
@@ -120,7 +120,8 @@ const Store = (() => {
     diretoria: 'Diretoria',
     gestor_contratos: 'Gestor de Contratos',
     gestor_orcamentos: 'Gestor de Orçamentos',
-    financeiro: 'Financeiro'
+    financeiro: 'Financeiro',
+    suprimentos: 'Suprimentos'
   };
 
   function getRole() {

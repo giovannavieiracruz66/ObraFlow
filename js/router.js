@@ -18,6 +18,7 @@ const Pages = {
   'almoxarifado-historico': renderAlmoxHistorico,
   materiais: renderMateriais,
   fornecedores: renderFornecedores,
+  pagamentos: renderPagamentos,
   usuarios: renderUsuarios
 };
 
@@ -34,7 +35,9 @@ const ROLE_PAGES = {
   // Gestor de Orçamentos: fase comercial + obras já convertidas.
   gestor_orcamentos: ['dashboard', 'orcamentos', 'clientes', 'obras', 'notificacoes', 'materiais', 'fornecedores'],
   // Financeiro: pagamentos, faturamento e propostas em aberto.
-  financeiro: ['dashboard', 'financeiro', 'medicoes', 'relatorios', 'orcamentos', 'notificacoes']
+  financeiro: ['dashboard', 'financeiro', 'medicoes', 'relatorios', 'orcamentos', 'notificacoes', 'pagamentos'],
+  // Suprimentos: foco em pagamentos e fornecedores.
+  suprimentos: ['dashboard', 'pagamentos', 'fornecedores', 'notificacoes']
 };
 
 // Páginas restritas ao Administrador mesmo dentro de perfis "acesso completo"
