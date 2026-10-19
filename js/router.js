@@ -17,6 +17,7 @@ const Pages = {
   'almoxarifado-recebimento': renderAlmoxRecebimento,
   'almoxarifado-historico': renderAlmoxHistorico,
   materiais: renderMateriais,
+  fornecedores: renderFornecedores,
   usuarios: renderUsuarios
 };
 
@@ -29,9 +30,9 @@ const ROLE_PAGES = {
   // Diretoria: visão executiva de tudo, exceto Almoxarifado (operacional) e Gerenciar Usuários.
   diretoria: ['dashboard', 'obras', 'medicoes', 'orcamentos', 'financeiro', 'clientes', 'cronograma', 'relatorios', 'notificacoes'],
   // Gestor de Contratos: execução da obra + almoxarifado.
-  gestor_contratos: ['dashboard', 'obras', 'medicoes', 'cronograma', 'clientes', 'notificacoes', 'almoxarifado-dashboard', 'almoxarifado-previsao', 'almoxarifado-recebimento', 'almoxarifado-historico', 'materiais'],
+  gestor_contratos: ['dashboard', 'obras', 'medicoes', 'cronograma', 'clientes', 'notificacoes', 'almoxarifado-dashboard', 'almoxarifado-previsao', 'almoxarifado-recebimento', 'almoxarifado-historico', 'materiais', 'fornecedores'],
   // Gestor de Orçamentos: fase comercial + obras já convertidas.
-  gestor_orcamentos: ['dashboard', 'orcamentos', 'clientes', 'obras', 'notificacoes', 'materiais'],
+  gestor_orcamentos: ['dashboard', 'orcamentos', 'clientes', 'obras', 'notificacoes', 'materiais', 'fornecedores'],
   // Financeiro: pagamentos, faturamento e propostas em aberto.
   financeiro: ['dashboard', 'financeiro', 'medicoes', 'relatorios', 'orcamentos', 'notificacoes']
 };
