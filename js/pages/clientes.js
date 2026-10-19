@@ -70,29 +70,9 @@ function renderClientContent() {
         <div class="client-avatar-lg" style="background:${color};">${initials(c.name)}</div>
         <div class="client-name">${c.name}</div>
         <div class="client-company">${c.company || 'Pessoa Física'}</div>
-        ${c.phone ? `
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-          <svg style="display:inline;margin-right:4px;flex-shrink:0;" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
-          ${c.phone}
-        </div>` : ''}
-        ${c.email ? `
-        <div style="font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-          <svg style="display:inline;margin-right:4px;flex-shrink:0;" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-          ${c.email}
-        </div>` : ''}
-        <div class="client-stats">
-          <div class="client-stat">
-            <div class="client-stat-value">${stats.projects.length}</div>
-            <div class="client-stat-label">Obras</div>
-          </div>
-          <div class="client-stat">
-            <div class="client-stat-value">${fmt.currency(stats.totalContracted).replace('R$','').trim()}</div>
-            <div class="client-stat-label">Contratado</div>
-          </div>
-          <div class="client-stat">
-            <div class="client-stat-value">${stats.budgets.length}</div>
-            <div class="client-stat-label">Orçamentos</div>
-          </div>
+        <div style="margin-top:auto;padding-top:12px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:12px;color:var(--text-muted);">${stats.projects.length} obra${stats.projects.length !== 1 ? 's' : ''}</span>
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--text-faint);"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
       </div>
     `;
