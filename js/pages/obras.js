@@ -154,6 +154,10 @@ function renderObrasContent() {
                       <button class="btn btn-sm btn-ghost" onclick="openEditProjectModal('${p.id}')">
                         <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                       </button>
+                      ${!['concluida','cancelada'].includes(p.status) ? `
+                      <button class="btn btn-sm btn-ghost" style="color:var(--success,#16a34a);" title="Finalizar obra" onclick="finalizeProject('${p.id}')">
+                        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                      </button>` : ''}
                       <button class="btn btn-sm btn-ghost" style="color:var(--danger);" onclick="deleteProject('${p.id}')">
                         <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path stroke-linecap="round" stroke-linejoin="round" d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
                       </button>
@@ -236,6 +240,11 @@ function openProjectDetail(id) {
         </div>
         <div style="display:flex;gap:8px;position:relative;z-index:1;">
           <button class="btn btn-outline" style="color:white;border-color:rgba(255,255,255,0.3);" onclick="openEditProjectModal('${id}')">Editar</button>
+          ${!['concluida','cancelada'].includes(project.status) ? `
+          <button class="btn btn-outline" style="color:#34d399;border-color:rgba(52,211,153,0.5);" onclick="finalizeProject('${id}')">
+            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Finalizar Obra
+          </button>` : ''}
           <button class="btn" style="background:white;color:var(--primary-800);" onclick="openNewMeasurementModal('${id}')">+ Medição</button>
         </div>
       </div>
@@ -725,6 +734,28 @@ function openNewProjectModal(prefill = {}) {
       renderObras();
     });
   }, 50);
+}
+
+function finalizeProject(id) {
+  const p = Store.getById('projects', id);
+  if (!p) return;
+  confirmDialog({
+    title: 'Finalizar Obra',
+    message: `Confirma a conclusão de "${p.name}"? O status será alterado para Concluída e o progresso físico será marcado como 100%.`,
+    confirmText: 'Finalizar',
+    type: 'warning',
+    onConfirm: () => {
+      Store.update('projects', id, { status: 'concluida', physicalProgress: 100 });
+      Toast.success('Obra finalizada!', `"${p.name}" marcada como Concluída.`);
+      // Redireciona pra lista se estiver no detalhe, senão apenas rerenderiza
+      const content = document.getElementById('page-content');
+      if (content?.querySelector('.obra-detail-header')) {
+        openProjectDetail(id);
+      } else {
+        renderObras();
+      }
+    }
+  });
 }
 
 function openEditProjectModal(id) {
