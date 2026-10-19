@@ -1,12 +1,12 @@
 // ==========================================
-// MATERIAIS / ALMOXARIFADO
-// Fluxo: Lista de Materiais → Solicitação de Compra → Recebimento
+// COMPRAS / ALMOXARIFADO
+// Fluxo: Solicitação de Compra → Enviar p/ Almox → Portaria registra recebimento
 // ==========================================
 
 const MAT_STATUS = {
-  pendente:   { label: 'Pendente',   badge: 'badge-orange', color: '#f59e0b' },
   solicitado: { label: 'Solicitado', badge: 'badge-blue',   color: '#3b82f6' },
   recebido:   { label: 'Recebido',   badge: 'badge-teal',   color: '#10b981' },
+  parcial:    { label: 'Parcial',    badge: 'badge-orange', color: '#f59e0b' },
 };
 
 function _matBadge(s) {
@@ -24,191 +24,17 @@ function _nextSolNumber() {
 function renderMateriaisTab(projectId) {
   const container = document.getElementById('project-tab-content');
   if (!container) return;
-  container.innerHTML = `<div id="mat-list-section"></div><div id="mat-sol-section" style="margin-top:24px;"></div>`;
-  _renderMaterialList(projectId);
-  _renderSolicitacoesSection(projectId);
-}
-
-// ─── LISTA DE MATERIAIS ────────────────────────────────────────────────────
-function _renderMaterialList(projectId) {
-  const container = document.getElementById('mat-list-section');
-  if (!container) return;
-
-  const items = Store.getList('project_materials')
-    .filter(m => m.projectId === projectId)
-    .sort((a, b) => {
-      const ord = { pendente: 0, solicitado: 1, recebido: 2 };
-      return (ord[a.status] ?? 0) - (ord[b.status] ?? 0);
-    });
-
-  const pendentes = items.filter(m => m.status === 'pendente');
-
   container.innerHTML = `
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">Lista de Materiais</div>
-        <div style="display:flex;gap:8px;">
-          ${pendentes.length ? `
-          <button class="btn btn-sm btn-primary" onclick="_openGerarSolicitacao('${projectId}')">
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-            Gerar Sol. de Compra
-          </button>` : ''}
-          ${canWrite() ? `
-          <button class="btn btn-sm btn-outline" onclick="openMaterialModal('${projectId}')">
-            + Adicionar Item
-          </button>` : ''}
-        </div>
-      </div>
-      ${items.length ? `
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>ITEM / INSUMO</th>
-              <th style="width:80px;">QTD</th>
-              <th style="width:55px;">UNID.</th>
-              <th>OBSERVAÇÃO</th>
-              <th style="width:100px;">STATUS</th>
-              <th style="width:110px;"></th>
-            </tr>
-          </thead>
-          <tbody>
-            ${items.map(m => `
-              <tr>
-                <td class="td-main">${m.description}</td>
-                <td style="text-align:right;">${Number(m.quantity||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
-                <td style="text-align:center;">${m.unit||'un'}</td>
-                <td style="font-size:12px;color:var(--text-muted);">${m.notes||'—'}</td>
-                <td>${_matBadge(m.status)}</td>
-                <td>
-                  <div style="display:flex;gap:3px;">
-                    ${m.status !== 'recebido' ? `
-                    <button class="btn btn-sm btn-ghost" style="color:#10b981;" title="Marcar como recebido" onclick="_markMatReceived('${m.id}','${projectId}')">
-                      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    </button>` : ''}
-                    <button class="btn btn-sm btn-ghost" title="Editar" onclick="openMaterialModal('${projectId}','${m.id}')">
-                      <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                    </button>
-                    <button class="btn btn-sm btn-ghost" style="color:var(--danger);" onclick="_deleteMaterial('${m.id}','${projectId}')">
-                      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
-                    </button>
-                  </div>
-                </td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>
-      <div style="display:flex;gap:20px;padding:12px 16px;border-top:1px solid var(--border);font-size:12px;color:var(--text-muted);">
-        ${Object.entries(MAT_STATUS).map(([k,s]) => {
-          const c = items.filter(m => m.status === k).length;
-          return `<span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${s.color};margin-right:4px;"></span>${s.label}: <strong style="color:var(--text);">${c}</strong></span>`;
-        }).join('')}
-      </div>` : `
-      <div style="padding:32px;text-align:center;color:var(--text-muted);">
-        <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px;display:block;opacity:.35;"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-        <p style="font-size:13px;">Nenhum material cadastrado ainda.</p>
-        ${canWrite() ? `<button class="btn btn-sm btn-primary" style="margin-top:12px;" onclick="openMaterialModal('${projectId}')">Adicionar Primeiro Item</button>` : ''}
-      </div>`}
-    </div>
+    <div id="sol-section"></div>
+    <div id="almox-section" style="margin-top:24px;"></div>
   `;
+  _renderSolSection(projectId);
+  _renderAlmoxSection(projectId);
 }
 
-function openMaterialModal(projectId, editId = null) {
-  const existing = editId ? Store.getById('project_materials', editId) : null;
-  const isEdit   = !!existing;
-  const v        = (field, fallback = '') => existing?.[field] ?? fallback;
-
-  const { close } = Modal.create({
-    title: isEdit ? 'Editar Item' : 'Adicionar Item',
-    size: 'modal-sm',
-    body: `
-      <div class="form-group">
-        <label class="form-label">Descrição / Insumo *</label>
-        <input class="form-control" id="mi-desc" value="${v('description')}" placeholder="Ex: Cimento CP-II, Areia grossa...">
-      </div>
-      <div class="form-grid" style="margin-top:12px;">
-        <div class="form-group">
-          <label class="form-label">Quantidade</label>
-          <input class="form-control" id="mi-qty" type="number" min="0" step="0.01" value="${v('quantity',1)}">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Unidade</label>
-          <input class="form-control" id="mi-unit" value="${v('unit','un')}" placeholder="un, m², kg, sc...">
-        </div>
-      </div>
-      ${isEdit ? `
-      <div class="form-group" style="margin-top:12px;">
-        <label class="form-label">Status</label>
-        <select class="form-control" id="mi-status">
-          ${Object.entries(MAT_STATUS).map(([k,s]) => `<option value="${k}" ${v('status','pendente')===k?'selected':''}>${s.label}</option>`).join('')}
-        </select>
-      </div>` : ''}
-      <div class="form-group" style="margin-top:12px;">
-        <label class="form-label">Observação</label>
-        <textarea class="form-control" id="mi-notes" rows="2" placeholder="Especificação, referência...">${v('notes')}</textarea>
-      </div>
-    `,
-    footer: `
-      <button class="btn btn-outline" id="mi-cancel">Cancelar</button>
-      <button class="btn btn-primary" id="mi-save">${isEdit ? 'Salvar' : 'Adicionar'}</button>
-    `
-  });
-
-  setTimeout(() => {
-    document.getElementById('mi-cancel')?.addEventListener('click', close);
-    document.getElementById('mi-save')?.addEventListener('click', () => {
-      const desc = document.getElementById('mi-desc').value.trim();
-      if (!desc) { Toast.error('Campo obrigatório', 'Informe a descrição.'); return; }
-      const data = {
-        projectId,
-        description: desc,
-        quantity:    parseFloat(document.getElementById('mi-qty').value) || 1,
-        unit:        document.getElementById('mi-unit').value.trim() || 'un',
-        notes:       document.getElementById('mi-notes').value.trim(),
-        status:      isEdit ? document.getElementById('mi-status').value : 'pendente',
-      };
-      if (isEdit) Store.update('project_materials', editId, data);
-      else Store.add('project_materials', data);
-      close();
-      Toast.success(isEdit ? 'Item atualizado!' : 'Item adicionado!');
-      _renderMaterialList(projectId);
-    });
-  }, 50);
-}
-
-function _markMatReceived(id, projectId) {
-  Store.update('project_materials', id, { status: 'recebido' });
-  Toast.success('Material recebido!');
-  _renderMaterialList(projectId);
-}
-
-function _deleteMaterial(id, projectId) {
-  confirmDialog({
-    title: 'Remover Item',
-    message: 'Remover este material da lista?',
-    confirmText: 'Remover', type: 'danger',
-    onConfirm: () => {
-      Store.remove('project_materials', id);
-      Toast.success('Removido!');
-      _renderMaterialList(projectId);
-    }
-  });
-}
-
-// ─── GERAR SOLICITAÇÃO DE COMPRA ────────────────────────────────────────────
-function _openGerarSolicitacao(projectId) {
-  const pendentes = Store.getList('project_materials')
-    .filter(m => m.projectId === projectId && m.status === 'pendente');
-  if (!pendentes.length) {
-    Toast.error('Sem itens pendentes', 'Todos os materiais já foram solicitados ou recebidos.');
-    return;
-  }
-  openSolicitacaoModal(projectId, null, pendentes);
-}
-
-// ─── SEÇÃO SOLICITAÇÕES EMITIDAS ────────────────────────────────────────────
-function _renderSolicitacoesSection(projectId) {
-  const container = document.getElementById('mat-sol-section');
+// ─── SEÇÃO 1: SOLICITAÇÕES DE COMPRA ───────────────────────────────────────
+function _renderSolSection(projectId) {
+  const container = document.getElementById('sol-section');
   if (!container) return;
 
   const sols = Store.getList('purchase_requests')
@@ -218,20 +44,24 @@ function _renderSolicitacoesSection(projectId) {
   container.innerHTML = `
     <div class="card">
       <div class="card-header">
-        <div class="card-title">Solicitações de Compra Emitidas</div>
-        ${canWrite() ? `<button class="btn btn-sm btn-outline" onclick="openSolicitacaoModal('${projectId}')">+ Nova Solicitação Manual</button>` : ''}
+        <div class="card-title">Solicitações de Compra</div>
+        ${canWrite() ? `
+        <button class="btn btn-sm btn-primary" onclick="openSolicitacaoModal('${projectId}')">
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nova Solicitação
+        </button>` : ''}
       </div>
       ${sols.length ? `
       <div class="table-wrapper">
         <table>
           <thead>
             <tr>
-              <th style="width:70px;">Nº</th>
-              <th style="width:100px;">DATA</th>
+              <th style="width:65px;">Nº</th>
+              <th style="width:95px;">DATA</th>
               <th>FORNECEDOR</th>
               <th>ITENS</th>
-              <th style="width:120px;">TOTAL</th>
-              <th style="width:130px;"></th>
+              <th style="width:115px;">TOTAL</th>
+              <th style="width:155px;"></th>
             </tr>
           </thead>
           <tbody>
@@ -239,22 +69,28 @@ function _renderSolicitacoesSection(projectId) {
               const total = (s.items || []).reduce((sum, i) => sum + (parseFloat(i.finalPrice) || 0), 0)
                           + parseFloat(s.freightValue || 0) + parseFloat(s.otherExpenses || 0) - parseFloat(s.discount || 0);
               const itemNames = (s.items || []).map(i => i.description).filter(Boolean).join(', ');
+              // Verifica se já foi enviada ao almox
+              const noAlmox = Store.getList('project_materials').some(m => m.purchaseRequestId === s.id);
               return `
                 <tr>
                   <td class="td-main" style="font-weight:800;">${s.number}</td>
                   <td style="font-size:12px;">${s.createdAt ? new Date(s.createdAt).toLocaleDateString('pt-BR') : '—'}</td>
                   <td>${s.supplierName || '—'}</td>
-                  <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--text-muted);">${itemNames || '—'}</td>
+                  <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--text-muted);">${itemNames || '—'}</td>
                   <td class="font-semibold">${fmt.currency(total)}</td>
                   <td>
-                    <div style="display:flex;gap:4px;">
+                    <div style="display:flex;gap:4px;flex-wrap:wrap;">
                       <button class="btn btn-sm btn-ghost" title="Editar" onclick="openSolicitacaoModal('${projectId}','${s.id}')">
-                        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                       </button>
                       <button class="btn btn-sm btn-outline" onclick="generateSolicitacaoPDF('${s.id}')">
                         <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                         PDF
                       </button>
+                      ${noAlmox
+                        ? `<button class="btn btn-sm btn-ghost" style="color:#10b981;font-size:11px;" title="Já no almoxarifado" onclick="_scrollToAlmox()">✓ Almox</button>`
+                        : `<button class="btn btn-sm btn-outline" style="font-size:11px;" onclick="_enviarParaAlmox('${s.id}','${projectId}')">↓ Almox</button>`
+                      }
                       <button class="btn btn-sm btn-ghost" style="color:var(--danger);" onclick="deleteSolicitacao('${s.id}','${projectId}')">
                         <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
                       </button>
@@ -265,15 +101,185 @@ function _renderSolicitacoesSection(projectId) {
           </tbody>
         </table>
       </div>` : `
-      <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">
-        Nenhuma solicitação emitida. Adicione materiais acima e clique em "Gerar Sol. de Compra".
+      <div style="padding:32px;text-align:center;color:var(--text-muted);">
+        <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px;display:block;opacity:.35;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        <p style="font-size:13px;">Nenhuma solicitação emitida ainda.</p>
+        ${canWrite() ? `<button class="btn btn-sm btn-primary" style="margin-top:12px;" onclick="openSolicitacaoModal('${projectId}')">Criar Primeira Solicitação</button>` : ''}
       </div>`}
     </div>
   `;
 }
 
+// ─── ENVIAR PARA ALMOXARIFADO ───────────────────────────────────────────────
+function _enviarParaAlmox(solId, projectId) {
+  const sol = Store.getById('purchase_requests', solId);
+  if (!sol || !sol.items?.length) { Toast.error('Sem itens', 'Esta solicitação não tem itens.'); return; }
+
+  confirmDialog({
+    title: 'Enviar para Almoxarifado',
+    message: `Enviar os ${sol.items.length} item(ns) da Sol. Nº ${sol.number} para o almoxarifado?\n\nA portaria poderá registrar o recebimento de cada item conforme a entrega.`,
+    confirmText: 'Enviar',
+    type: 'info',
+    onConfirm: () => {
+      sol.items.forEach(item => {
+        Store.add('project_materials', {
+          projectId,
+          purchaseRequestId: solId,
+          solNumber:         sol.number,
+          supplierName:      sol.supplierName || '',
+          description:       item.description,
+          quantity:          item.quantity,
+          unit:              item.unit || 'un',
+          unitPrice:         item.unitPrice || 0,
+          status:            'solicitado',
+        });
+      });
+      Toast.success('Enviado!', `Sol. Nº ${sol.number} registrada no almoxarifado.`);
+      renderMateriaisTab(projectId);
+    }
+  });
+}
+
+function _scrollToAlmox() {
+  document.getElementById('almox-section')?.scrollIntoView({ behavior: 'smooth' });
+}
+
+// ─── SEÇÃO 2: ALMOXARIFADO ─────────────────────────────────────────────────
+function _renderAlmoxSection(projectId) {
+  const container = document.getElementById('almox-section');
+  if (!container) return;
+
+  const items = Store.getList('project_materials')
+    .filter(m => m.projectId === projectId)
+    .sort((a, b) => {
+      // Solicitados primeiro, depois parciais, recebidos por último
+      const ord = { solicitado: 0, parcial: 1, recebido: 2 };
+      const diff = (ord[a.status] ?? 0) - (ord[b.status] ?? 0);
+      if (diff !== 0) return diff;
+      return (b.solNumber || '').localeCompare(a.solNumber || '');
+    });
+
+  const totSol  = items.filter(m => m.status === 'solicitado').length;
+  const totPar  = items.filter(m => m.status === 'parcial').length;
+  const totRec  = items.filter(m => m.status === 'recebido').length;
+  const canPort = ['admin','gestor','portaria','suprimentos'].includes(Store.getRole());
+
+  container.innerHTML = `
+    <div class="card" id="almox-card">
+      <div class="card-header">
+        <div class="card-title">Almoxarifado</div>
+        <div style="display:flex;gap:12px;font-size:12px;color:var(--text-muted);align-items:center;">
+          <span style="display:flex;align-items:center;gap:5px;"><span style="width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block;"></span>Aguardando: <strong style="color:var(--text);">${totSol}</strong></span>
+          ${totPar ? `<span style="display:flex;align-items:center;gap:5px;"><span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>Parcial: <strong style="color:var(--text);">${totPar}</strong></span>` : ''}
+          <span style="display:flex;align-items:center;gap:5px;"><span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span>Recebido: <strong style="color:var(--text);">${totRec}</strong></span>
+        </div>
+      </div>
+      ${items.length ? `
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>ITEM / INSUMO</th>
+              <th style="width:80px;">QTD SOL.</th>
+              <th style="width:80px;">QTD REC.</th>
+              <th style="width:55px;">UNID.</th>
+              <th style="width:80px;">SOL. Nº</th>
+              <th>FORNECEDOR</th>
+              <th style="width:100px;">STATUS</th>
+              ${canPort ? `<th style="width:80px;"></th>` : ''}
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map(m => `
+              <tr style="${m.status==='recebido'?'opacity:.65;':''}">
+                <td class="td-main">${m.description}</td>
+                <td style="text-align:right;">${Number(m.quantity||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+                <td style="text-align:right;font-weight:600;color:${m.status==='recebido'?'#10b981':'var(--text-muted)'};">${Number(m.receivedQty||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+                <td style="text-align:center;">${m.unit||'un'}</td>
+                <td style="text-align:center;font-weight:700;">${m.solNumber||'—'}</td>
+                <td style="font-size:12px;color:var(--text-muted);">${m.supplierName||'—'}</td>
+                <td>${_matBadge(m.status)}</td>
+                ${canPort ? `
+                <td>
+                  ${m.status !== 'recebido' ? `
+                  <button class="btn btn-sm btn-ghost" style="color:#10b981;" title="Registrar recebimento" onclick="_openReceberModal('${m.id}','${projectId}')">
+                    <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    Receber
+                  </button>` : `
+                  <span style="font-size:11px;color:#10b981;">✓ Ok</span>`}
+                </td>` : ''}
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>` : `
+      <div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px;">
+        <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 10px;display:block;opacity:.3;"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+        Nenhum item no almoxarifado ainda.<br>
+        <span style="font-size:12px;">Crie uma solicitação de compra e clique em "↓ Almox" para enviar os itens.</span>
+      </div>`}
+    </div>
+  `;
+}
+
+// ─── RECEBER ITEM (PORTARIA) ────────────────────────────────────────────────
+function _openReceberModal(itemId, projectId) {
+  const item = Store.getById('project_materials', itemId);
+  if (!item) return;
+  const pending = item.quantity - (item.receivedQty || 0);
+
+  const { close } = Modal.create({
+    title: 'Registrar Recebimento',
+    size: 'modal-sm',
+    body: `
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+        Item: <strong style="color:var(--text);">${item.description}</strong><br>
+        Solicitado: <strong>${Number(item.quantity).toLocaleString('pt-BR',{minimumFractionDigits:2})} ${item.unit||'un'}</strong>
+        ${item.receivedQty > 0 ? ` · Já recebido: <strong>${Number(item.receivedQty).toLocaleString('pt-BR',{minimumFractionDigits:2})}</strong>` : ''}
+      </p>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label class="form-label">Quantidade recebida agora *</label>
+        <input class="form-control" id="rec-qty" type="number" min="0.01" step="0.01" value="${pending}" placeholder="0">
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label class="form-label">Nº da Nota Fiscal</label>
+        <input class="form-control" id="rec-nf" placeholder="000000">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Observação</label>
+        <textarea class="form-control" id="rec-notes" rows="2" placeholder="Condição da entrega, divergência..."></textarea>
+      </div>
+    `,
+    footer: `
+      <button class="btn btn-outline" id="rec-cancel">Cancelar</button>
+      <button class="btn btn-primary" id="rec-confirm">Confirmar Recebimento</button>
+    `
+  });
+
+  setTimeout(() => {
+    document.getElementById('rec-cancel')?.addEventListener('click', close);
+    document.getElementById('rec-confirm')?.addEventListener('click', () => {
+      const qty = parseFloat(document.getElementById('rec-qty').value) || 0;
+      if (qty <= 0) { Toast.error('Quantidade inválida', 'Informe a quantidade recebida.'); return; }
+      const nf    = document.getElementById('rec-nf').value.trim();
+      const notes = document.getElementById('rec-notes').value.trim();
+      const newReceived = (item.receivedQty || 0) + qty;
+      const newStatus   = newReceived >= item.quantity ? 'recebido' : 'parcial';
+      Store.update('project_materials', itemId, {
+        receivedQty: newReceived,
+        status:      newStatus,
+        lastNf:      nf || item.lastNf || '',
+        lastNotes:   notes,
+        lastReceivedAt: new Date().toISOString().slice(0,10),
+      });
+      close();
+      Toast.success('Recebimento registrado!', newStatus === 'recebido' ? 'Item totalmente recebido.' : `Recebido parcialmente. Faltam ${(item.quantity - newReceived).toLocaleString('pt-BR',{minimumFractionDigits:2})} ${item.unit||'un'}.`);
+      _renderAlmoxSection(projectId);
+    });
+  }, 50);
+}
+
 // ─── MODAL SOLICITAÇÃO ──────────────────────────────────────────────────────
-function openSolicitacaoModal(projectId, editId = null, prefillItems = null) {
+function openSolicitacaoModal(projectId, editId = null) {
   const project   = Store.getById('projects', projectId);
   const suppliers = Store.getList('suppliers');
   const existing  = editId ? Store.getById('purchase_requests', editId) : null;
@@ -365,13 +371,8 @@ function openSolicitacaoModal(projectId, editId = null, prefillItems = null) {
 
   setTimeout(() => {
     _solItemIdx = 0;
-    if (existing?.items?.length) {
-      existing.items.forEach(item => addSolItem(item));
-    } else if (prefillItems?.length) {
-      prefillItems.forEach(m => addSolItem({ description: m.description, quantity: m.quantity, unit: m.unit || 'un', unitPrice: 0, finalPrice: 0, expectedDate: '', _materialId: m.id }));
-    } else {
-      addSolItem();
-    }
+    if (existing?.items?.length) existing.items.forEach(item => addSolItem(item));
+    else addSolItem();
     updateSolTotals();
 
     document.getElementById('modal-cancel')?.addEventListener('click', close);
@@ -379,9 +380,7 @@ function openSolicitacaoModal(projectId, editId = null, prefillItems = null) {
       const supplierSel  = document.getElementById('sol-supplier').value;
       const isManual     = supplierSel === '__manual' || supplierSel === '';
       const supplierRec  = Store.getById('suppliers', supplierSel);
-      const supplierName = isManual
-        ? document.getElementById('sol-name')?.value.trim()
-        : (supplierRec?.name || '');
+      const supplierName = isManual ? document.getElementById('sol-name')?.value.trim() : (supplierRec?.name || '');
       if (!supplierName) { Toast.error('Campo obrigatório', 'Informe o fornecedor.'); return; }
       const items = _readSolItems();
       if (!items.length) { Toast.error('Sem itens', 'Adicione pelo menos um item.'); return; }
@@ -415,12 +414,8 @@ function openSolicitacaoModal(projectId, editId = null, prefillItems = null) {
       } else {
         data.createdAt = new Date().toISOString();
         Store.add('purchase_requests', data);
-        // Marca itens da lista como "solicitado"
-        if (prefillItems?.length) {
-          prefillItems.forEach(m => Store.update('project_materials', m.id, { status: 'solicitado' }));
-        }
         close();
-        Toast.success('Solicitação salva!');
+        Toast.success('Solicitação salva!', 'Use o botão "↓ Almox" para enviar para o almoxarifado.');
         setTimeout(() => {
           const newSol = Store.getList('purchase_requests').find(r => r.number === number && r.projectId === projectId);
           if (newSol) generateSolicitacaoPDF(newSol.id);
@@ -518,7 +513,7 @@ function _readSolItems() {
 
 function deleteSolicitacao(id, projectId) {
   confirmDialog({
-    title: 'Excluir Solicitação', message: 'Excluir esta solicitação de compra?',
+    title: 'Excluir Solicitação', message: 'Excluir esta solicitação de compra? Os itens no almoxarifado vinculados a ela não serão removidos.',
     confirmText: 'Excluir', type: 'danger',
     onConfirm: () => { Store.remove('purchase_requests', id); Toast.success('Excluída!'); renderMateriaisTab(projectId); }
   });
