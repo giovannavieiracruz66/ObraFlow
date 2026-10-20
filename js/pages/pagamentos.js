@@ -63,12 +63,12 @@ function renderPagamentos() {
     </div>
 
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px;">
-      <div class="kpi-card orange">
+      <div class="kpi-card orange" style="cursor:pointer;" title="Ver pendentes" onclick="pagView='lista';pagFilter.status='pendente';pagFilter.page=1;renderPagamentos()">
         <div class="kpi-top"><div class="kpi-icon orange"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div></div>
         <div class="kpi-value">${pending}</div>
         <div class="kpi-label">Pendentes</div>
       </div>
-      <div class="kpi-card red">
+      <div class="kpi-card red" style="cursor:pointer;" title="Ver em atraso" onclick="pagView='lista';pagFilter.status='atrasado';pagFilter.page=1;renderPagamentos()">
         <div class="kpi-top"><div class="kpi-icon red"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg></div></div>
         <div class="kpi-value">${overdue}</div>
         <div class="kpi-label">Em Atraso</div>
