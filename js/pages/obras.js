@@ -3,6 +3,8 @@
 // ==========================================
 
 let obrasFilter = { status: '', responsible: '', search: '', page: 1 };
+let obrasSelectMode = false;
+let obrasSelected = new Set();
 
 function renderObras() {
   const projects = Store.getList('projects');
@@ -29,6 +31,11 @@ function renderObras() {
           </button>
         </div>
         ${canWrite() ? `
+        <button class="btn btn-sm ${obrasSelectMode ? 'btn-danger' : 'btn-outline'}" id="btn-select-mode" onclick="toggleObrasSelectMode()">
+          ${obrasSelectMode
+            ? `<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancelar seleção`
+            : `<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path stroke-linecap="round" stroke-linejoin="round" d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg> Excluir obras`}
+        </button>
         <button class="btn btn-primary" onclick="openNewProjectModal()">
           <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Nova Obra
@@ -57,6 +64,23 @@ function renderObras() {
         ${responsibles.map(r => `<option value="${r}" ${obrasFilter.responsible===r?'selected':''}>${r}</option>`).join('')}
       </select>
       <button class="btn btn-sm btn-ghost" onclick="obrasFilter={status:'',responsible:'',search:'',page:1};renderObras()">Limpar</button>
+    </div>
+
+    <!-- BARRA DE SELEÇÃO EM LOTE -->
+    <div id="obras-select-bar" style="display:${obrasSelectMode ? 'flex' : 'none'};align-items:center;justify-content:space-between;gap:12px;background:#fef2f2;border:1.5px solid #fecaca;border-radius:10px;padding:12px 16px;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;font-weight:600;color:#991b1b;">
+          <input type="checkbox" id="obras-select-all" onchange="obrasToggleAll(this.checked)" style="width:16px;height:16px;cursor:pointer;">
+          Selecionar todas
+        </label>
+        <span id="obras-select-count" style="font-size:13px;color:#7f1d1d;">0 selecionadas</span>
+      </div>
+      <button onclick="deleteSelectedProjects()" id="btn-delete-selected" disabled
+        style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;opacity:.4;transition:opacity .15s;"
+      >
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="margin-right:6px;vertical-align:-2px;"><polyline points="3 6 5 6 21 6"/><path stroke-linecap="round" stroke-linejoin="round" d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+        Excluir selecionadas
+      </button>
     </div>
 
     <!-- CONTENT -->
@@ -124,12 +148,20 @@ function renderObrasContent() {
           <table>
             <thead>
               <tr>
-                <th>OBRA</th><th>CLIENTE</th><th>RESPONSÁVEL</th><th>INÍCIO</th><th>CONCLUSÃO</th><th>VALOR</th><th>PROGRESSO</th><th>STATUS</th><th></th>
+                ${obrasSelectMode ? `<th style="width:40px;"></th>` : ''}
+                <th>OBRA</th><th>CLIENTE</th><th>RESPONSÁVEL</th><th>INÍCIO</th><th>CONCLUSÃO</th><th>VALOR</th><th>PROGRESSO</th><th>STATUS</th>
+                ${!obrasSelectMode ? '<th></th>' : ''}
               </tr>
             </thead>
             <tbody>
-              ${pageItems.map(p => `
-                <tr>
+              ${pageItems.map(p => {
+                const sel = obrasSelectMode && obrasSelected.has(p.id);
+                return `
+                <tr style="${sel ? 'background:#fef2f2;' : ''}" ${obrasSelectMode ? `onclick="obrasToggleItem('${p.id}', this)" style="cursor:pointer;${sel ? 'background:#fef2f2;' : ''}"` : ''}>
+                  ${obrasSelectMode ? `
+                  <td onclick="event.stopPropagation();">
+                    <input type="checkbox" data-id="${p.id}" ${sel ? 'checked' : ''} onchange="obrasToggleItem('${p.id}', this.closest('tr'))" style="width:16px;height:16px;cursor:pointer;accent-color:#ef4444;">
+                  </td>` : ''}
                   <td>
                     <div class="td-main">${p.name}</div>
                     <div class="td-muted">${p.city} • ${p.category}</div>
@@ -146,6 +178,7 @@ function renderObrasContent() {
                     </div>
                   </td>
                   <td>${badge('project', p.status)}</td>
+                  ${!obrasSelectMode ? `
                   <td>
                     <div style="display:flex;gap:4px;">
                       <button class="btn btn-sm btn-ghost" onclick="openProjectDetail('${p.id}')">
@@ -162,9 +195,9 @@ function renderObrasContent() {
                         <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path stroke-linecap="round" stroke-linejoin="round" d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
                       </button>
                     </div>
-                  </td>
-                </tr>
-              `).join('')}
+                  </td>` : ''}
+                </tr>`;
+              }).join('')}
             </tbody>
           </table>
         </div>
@@ -178,7 +211,35 @@ function renderObrasContent() {
 
 function obrasCard(p, clientName) {
   const colorMap = { em_andamento: '#10b981', concluida: '#0f3460', programada: '#0ea5e9', aprovado: '#06b6d4', pausada: '#8b5cf6', orcamento: '#f59e0b', cancelada: '#ef4444' };
-  const color = colorMap[p.status] || '#94a3b8';
+  const color    = colorMap[p.status] || '#94a3b8';
+  const selected = obrasSelectMode && obrasSelected.has(p.id);
+
+  if (obrasSelectMode) {
+    return `
+      <div class="obra-card" onclick="obrasToggleItem('${p.id}', this)" style="cursor:pointer;border:2px solid ${selected ? '#ef4444' : 'var(--border)'};position:relative;${selected ? 'background:#fef2f2;' : ''}">
+        <div style="position:absolute;top:10px;right:10px;z-index:2;">
+          <input type="checkbox" data-id="${p.id}" ${selected ? 'checked' : ''} onclick="event.stopPropagation();obrasToggleItem('${p.id}', this.closest('.obra-card'))" style="width:18px;height:18px;cursor:pointer;accent-color:#ef4444;">
+        </div>
+        <div class="obra-card-header" style="padding-right:32px;">
+          <div>
+            <div class="obra-card-title">${p.name}</div>
+            <div class="obra-card-client">${clientName} • ${p.city}</div>
+          </div>
+          ${badge('project', p.status)}
+        </div>
+        <div class="obra-card-body">
+          <div class="obra-card-row">
+            <span class="obra-card-row-label">Valor contratado</span>
+            <span class="obra-card-row-value">${fmt.currency(p.contractValue)}</span>
+          </div>
+          <div class="obra-card-row">
+            <span class="obra-card-row-label">Responsável</span>
+            <span class="obra-card-row-value">${p.responsible}</span>
+          </div>
+        </div>
+      </div>`;
+  }
+
   return `
     <div class="obra-card" onclick="openProjectDetail('${p.id}')">
       <div class="obra-card-header">
@@ -883,6 +944,80 @@ function openEditProjectModal(id) {
       renderObras();
     });
   }, 50);
+}
+
+// === EXCLUSÃO EM LOTE =========================================================
+function toggleObrasSelectMode() {
+  obrasSelectMode = !obrasSelectMode;
+  obrasSelected.clear();
+  renderObras();
+}
+
+function obrasToggleItem(id, el) {
+  if (obrasSelected.has(id)) {
+    obrasSelected.delete(id);
+    el?.querySelector('input[type=checkbox]')?.setAttribute('checked', false);
+  } else {
+    obrasSelected.add(id);
+  }
+  // Atualiza contagem e botão
+  const count  = obrasSelected.size;
+  const countEl = document.getElementById('obras-select-count');
+  const btn     = document.getElementById('btn-delete-selected');
+  const allChk  = document.getElementById('obras-select-all');
+  if (countEl) countEl.textContent = `${count} selecionada${count !== 1 ? 's' : ''}`;
+  if (btn) { btn.disabled = count === 0; btn.style.opacity = count === 0 ? '.4' : '1'; }
+  // Reflete visualmente sem re-renderizar tudo
+  document.querySelectorAll('[data-id]').forEach(inp => {
+    const row = inp.closest('tr') || inp.closest('.obra-card');
+    if (!row) return;
+    const sel = obrasSelected.has(inp.dataset.id);
+    inp.checked = sel;
+    if (row.tagName === 'TR') row.style.background = sel ? '#fef2f2' : '';
+    else { row.style.border = `2px solid ${sel ? '#ef4444' : 'var(--border)'}`; row.style.background = sel ? '#fef2f2' : ''; }
+  });
+  if (allChk) {
+    const total = document.querySelectorAll('[data-id]').length;
+    allChk.checked = count > 0 && count === total;
+    allChk.indeterminate = count > 0 && count < total;
+  }
+}
+
+function obrasToggleAll(checked) {
+  const all = document.querySelectorAll('[data-id]');
+  all.forEach(inp => {
+    const id = inp.dataset.id;
+    if (checked) obrasSelected.add(id); else obrasSelected.delete(id);
+    inp.checked = checked;
+    const row = inp.closest('tr') || inp.closest('.obra-card');
+    if (!row) return;
+    if (row.tagName === 'TR') row.style.background = checked ? '#fef2f2' : '';
+    else { row.style.border = `2px solid ${checked ? '#ef4444' : 'var(--border)'}`; row.style.background = checked ? '#fef2f2' : ''; }
+  });
+  const count   = obrasSelected.size;
+  const countEl = document.getElementById('obras-select-count');
+  const btn     = document.getElementById('btn-delete-selected');
+  if (countEl) countEl.textContent = `${count} selecionada${count !== 1 ? 's' : ''}`;
+  if (btn) { btn.disabled = count === 0; btn.style.opacity = count === 0 ? '.4' : '1'; }
+}
+
+function deleteSelectedProjects() {
+  const ids   = [...obrasSelected];
+  const names = ids.map(id => Store.getById('projects', id)?.name).filter(Boolean);
+  if (!ids.length) return;
+  confirmDialog({
+    title: `Excluir ${ids.length} obra${ids.length > 1 ? 's' : ''}`,
+    message: `Você está prestes a excluir permanentemente:\n\n${names.map(n => `• ${n}`).join('\n')}\n\nEsta ação não pode ser desfeita.`,
+    confirmText: `Excluir ${ids.length} obra${ids.length > 1 ? 's' : ''}`,
+    type: 'danger',
+    onConfirm: () => {
+      ids.forEach(id => Store.remove('projects', id));
+      Toast.success(`${ids.length} obra${ids.length > 1 ? 's excluídas' : ' excluída'}!`);
+      obrasSelectMode = false;
+      obrasSelected.clear();
+      renderObras();
+    }
+  });
 }
 
 function deleteProject(id) {
