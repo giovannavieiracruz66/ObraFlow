@@ -149,20 +149,71 @@ function _renderAlmoxSection(projectId) {
   const container = document.getElementById('almox-section');
   if (!container) return;
 
-  const items = Store.getList('project_materials')
+  // Itens novos (via solicitações)
+  const newItems = Store.getList('project_materials')
     .filter(m => m.projectId === projectId)
     .sort((a, b) => {
-      // Solicitados primeiro, depois parciais, recebidos por último
       const ord = { solicitado: 0, parcial: 1, recebido: 2 };
-      const diff = (ord[a.status] ?? 0) - (ord[b.status] ?? 0);
-      if (diff !== 0) return diff;
-      return (b.solNumber || '').localeCompare(a.solNumber || '');
+      return (ord[a.status] ?? 0) - (ord[b.status] ?? 0);
     });
 
-  const totSol  = items.filter(m => m.status === 'solicitado').length;
-  const totPar  = items.filter(m => m.status === 'parcial').length;
-  const totRec  = items.filter(m => m.status === 'recebido').length;
+  // Pedidos legados (tabela orders)
+  const legacyOrders = Store.getList('orders').filter(o => o.projectId === projectId);
+
+  const totSol = newItems.filter(m => m.status === 'solicitado').length;
+  const totPar = newItems.filter(m => m.status === 'parcial').length;
+  const totRec = newItems.filter(m => m.status === 'recebido').length
+               + legacyOrders.filter(o => (o.delivered >= o.quantity)).length;
   const canPort = ['admin','gestor','portaria','suprimentos'].includes(Store.getRole());
+
+  const hasAny = newItems.length > 0 || legacyOrders.length > 0;
+
+  // Renderiza linhas dos itens novos
+  const newRows = newItems.map(m => `
+    <tr style="${m.status==='recebido'?'opacity:.65;':''}">
+      <td class="td-main">${m.description}</td>
+      <td style="text-align:right;">${Number(m.quantity||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td style="text-align:right;font-weight:600;color:${m.status==='recebido'?'#10b981':'var(--text-muted)'};">${Number(m.receivedQty||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td style="text-align:center;">${m.unit||'un'}</td>
+      <td style="text-align:center;font-size:11px;">${m.solNumber ? `Sol. #${m.solNumber}` : '—'}</td>
+      <td style="font-size:12px;color:var(--text-muted);">${m.supplierName||'—'}</td>
+      <td>${_matBadge(m.status)}</td>
+      ${canPort ? `
+      <td>
+        ${m.status !== 'recebido' ? `
+        <button class="btn btn-sm btn-ghost" style="color:#10b981;" title="Registrar recebimento" onclick="_openReceberModal('${m.id}','${projectId}')">
+          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          Receber
+        </button>` : `<span style="font-size:11px;color:#10b981;">✓ Ok</span>`}
+      </td>` : ''}
+    </tr>`).join('');
+
+  // Renderiza linhas dos pedidos legados (orders)
+  const legacyRows = legacyOrders.map(o => {
+    const saldo   = (o.quantity || 0) - (o.delivered || 0);
+    const statusO = saldo <= 0 ? 'recebido' : (o.delivered > 0 ? 'parcial' : 'solicitado');
+    return `
+    <tr style="${statusO==='recebido'?'opacity:.65;':''}">
+      <td class="td-main">
+        ${o.item || '—'}
+        <span style="display:inline-block;margin-left:6px;font-size:10px;color:var(--text-faint);background:var(--surface-2);border:1px solid var(--border);border-radius:4px;padding:1px 5px;">legado</span>
+      </td>
+      <td style="text-align:right;">${Number(o.quantity||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td style="text-align:right;font-weight:600;color:${statusO==='recebido'?'#10b981':'var(--text-muted)'};">${Number(o.delivered||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td style="text-align:center;">${o.unit||'un'}</td>
+      <td style="text-align:center;font-size:11px;color:var(--text-faint);">—</td>
+      <td style="font-size:12px;color:var(--text-muted);">${o.supplier||'—'}</td>
+      <td>${_matBadge(statusO)}</td>
+      ${canPort ? `
+      <td>
+        ${saldo > 0 ? `
+        <button class="btn btn-sm btn-ghost" style="color:#10b981;" onclick="openReceiveMaterialModal('${o.id}', () => renderMateriaisTab('${projectId}'))">
+          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          Receber
+        </button>` : `<span style="font-size:11px;color:#10b981;">✓ Ok</span>`}
+      </td>` : ''}
+    </tr>`;
+  }).join('');
 
   container.innerHTML = `
     <div class="card" id="almox-card">
@@ -174,48 +225,31 @@ function _renderAlmoxSection(projectId) {
           <span style="display:flex;align-items:center;gap:5px;"><span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span>Recebido: <strong style="color:var(--text);">${totRec}</strong></span>
         </div>
       </div>
-      ${items.length ? `
+      ${hasAny ? `
       <div class="table-wrapper">
         <table>
           <thead>
             <tr>
               <th>ITEM / INSUMO</th>
-              <th style="width:80px;">QTD SOL.</th>
-              <th style="width:80px;">QTD REC.</th>
+              <th style="width:85px;">QTD SOL.</th>
+              <th style="width:85px;">QTD REC.</th>
               <th style="width:55px;">UNID.</th>
-              <th style="width:80px;">SOL. Nº</th>
+              <th style="width:85px;">ORIGEM</th>
               <th>FORNECEDOR</th>
               <th style="width:100px;">STATUS</th>
-              ${canPort ? `<th style="width:80px;"></th>` : ''}
+              ${canPort ? `<th style="width:90px;"></th>` : ''}
             </tr>
           </thead>
           <tbody>
-            ${items.map(m => `
-              <tr style="${m.status==='recebido'?'opacity:.65;':''}">
-                <td class="td-main">${m.description}</td>
-                <td style="text-align:right;">${Number(m.quantity||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
-                <td style="text-align:right;font-weight:600;color:${m.status==='recebido'?'#10b981':'var(--text-muted)'};">${Number(m.receivedQty||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
-                <td style="text-align:center;">${m.unit||'un'}</td>
-                <td style="text-align:center;font-weight:700;">${m.solNumber||'—'}</td>
-                <td style="font-size:12px;color:var(--text-muted);">${m.supplierName||'—'}</td>
-                <td>${_matBadge(m.status)}</td>
-                ${canPort ? `
-                <td>
-                  ${m.status !== 'recebido' ? `
-                  <button class="btn btn-sm btn-ghost" style="color:#10b981;" title="Registrar recebimento" onclick="_openReceberModal('${m.id}','${projectId}')">
-                    <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    Receber
-                  </button>` : `
-                  <span style="font-size:11px;color:#10b981;">✓ Ok</span>`}
-                </td>` : ''}
-              </tr>`).join('')}
+            ${newRows}
+            ${legacyRows}
           </tbody>
         </table>
       </div>` : `
       <div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px;">
         <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 10px;display:block;opacity:.3;"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
         Nenhum item no almoxarifado ainda.<br>
-        <span style="font-size:12px;">Crie uma solicitação de compra e clique em "↓ Almox" para enviar os itens.</span>
+        <span style="font-size:12px;">Crie uma solicitação e clique em "↓ Almox" para enviar os itens.</span>
       </div>`}
     </div>
   `;

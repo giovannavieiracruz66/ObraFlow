@@ -323,10 +323,6 @@ function openProjectDetail(id) {
         <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
         Observações
       </button>
-      <button class="tab" onclick="showProjectTab('orders','${id}')">
-        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-        Materiais / Almoxarifado
-      </button>
       <button class="tab" onclick="showProjectTab('compras','${id}')">
         <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
         Materiais / Almox
@@ -346,7 +342,7 @@ function showProjectTab(tab, projectId) {
 
   // Update active tab
   document.querySelectorAll('#project-tabs .tab').forEach((t, i) => {
-    t.classList.toggle('active', ['overview','financial','measurements','services','notes','orders','compras'].indexOf(tab) === i);
+    t.classList.toggle('active', ['overview','financial','measurements','services','notes','compras'].indexOf(tab) === i);
   });
 
   const container = document.getElementById('project-tab-content');
