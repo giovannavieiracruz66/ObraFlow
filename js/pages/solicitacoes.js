@@ -149,164 +149,324 @@ function _renderAlmoxSection(projectId) {
   const container = document.getElementById('almox-section');
   if (!container) return;
 
-  // Itens novos (via solicitações)
   const newItems = Store.getList('project_materials')
-    .filter(m => m.projectId === projectId)
-    .sort((a, b) => {
-      const ord = { solicitado: 0, parcial: 1, recebido: 2 };
-      return (ord[a.status] ?? 0) - (ord[b.status] ?? 0);
-    });
+    .filter(m => m.projectId === projectId);
 
-  // Pedidos legados (tabela orders)
   const legacyOrders = Store.getList('orders').filter(o => o.projectId === projectId);
 
-  const totSol = newItems.filter(m => m.status === 'solicitado').length;
-  const totPar = newItems.filter(m => m.status === 'parcial').length;
-  const totRec = newItems.filter(m => m.status === 'recebido').length
-               + legacyOrders.filter(o => (o.delivered >= o.quantity)).length;
-  const canPort = ['admin','gestor','portaria','suprimentos'].includes(Store.getRole());
+  // Normaliza pedidos legados para o mesmo formato dos novos
+  const legacyNorm = legacyOrders.map(o => {
+    const saldo = (o.quantity || 0) - (o.delivered || 0);
+    return {
+      _id:         o.id,
+      _type:       'legacy',
+      description: o.item || '—',
+      supplierName:o.supplier || '—',
+      quantity:    o.quantity || 0,
+      receivedQty: o.delivered || 0,
+      unit:        o.unit || 'un',
+      solNumber:   null,
+      status:      saldo <= 0 ? 'recebido' : (o.delivered > 0 ? 'parcial' : 'solicitado'),
+    };
+  });
+  const allNorm = [
+    ...newItems.map(m => ({ _id: m.id, _type: 'new', ...m })),
+    ...legacyNorm,
+  ];
 
-  const hasAny = newItems.length > 0 || legacyOrders.length > 0;
+  const pending  = allNorm.filter(m => m.status === 'solicitado');
+  const partial  = allNorm.filter(m => m.status === 'parcial');
+  const received = allNorm.filter(m => m.status === 'recebido');
+  const canPort  = ['admin','gestor','portaria','suprimentos'].includes(Store.getRole());
 
-  // Renderiza linhas dos itens novos
-  const newRows = newItems.map(m => `
-    <tr style="${m.status==='recebido'?'opacity:.65;':''}">
-      <td class="td-main">${m.description}</td>
-      <td style="text-align:right;">${Number(m.quantity||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
-      <td style="text-align:right;font-weight:600;color:${m.status==='recebido'?'#10b981':'var(--text-muted)'};">${Number(m.receivedQty||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
-      <td style="text-align:center;">${m.unit||'un'}</td>
-      <td style="text-align:center;font-size:11px;">${m.solNumber ? `Sol. #${m.solNumber}` : '—'}</td>
-      <td style="font-size:12px;color:var(--text-muted);">${m.supplierName||'—'}</td>
-      <td>${_matBadge(m.status)}</td>
-      ${canPort ? `
-      <td>
-        ${m.status !== 'recebido' ? `
-        <button class="btn btn-sm btn-ghost" style="color:#10b981;" title="Registrar recebimento" onclick="_openReceberModal('${m.id}','${projectId}')">
-          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          Receber
-        </button>` : `<span style="font-size:11px;color:#10b981;">✓ Ok</span>`}
-      </td>` : ''}
-    </tr>`).join('');
+  // ── card visual de cada item ───────────────────────────────────────────────
+  function _itemCard(m) {
+    const pct  = m.quantity > 0 ? Math.min(100, Math.round((m.receivedQty / m.quantity) * 100)) : 0;
+    const falt = m.quantity - (m.receivedQty || 0);
 
-  // Renderiza linhas dos pedidos legados (orders)
-  const legacyRows = legacyOrders.map(o => {
-    const saldo   = (o.quantity || 0) - (o.delivered || 0);
-    const statusO = saldo <= 0 ? 'recebido' : (o.delivered > 0 ? 'parcial' : 'solicitado');
+    const statusCfg = {
+      solicitado: { bg:'#eff6ff', border:'#bfdbfe', dot:'#3b82f6', label:'Aguardando chegada' },
+      parcial:    { bg:'#fffbeb', border:'#fde68a', dot:'#f59e0b', label:'Entrega parcial'    },
+      recebido:   { bg:'#f0fdf4', border:'#bbf7d0', dot:'#10b981', label:'Totalmente recebido'},
+    };
+    const cfg = statusCfg[m.status] || statusCfg.solicitado;
+
+    const barColor = m.status === 'recebido' ? '#10b981' : m.status === 'parcial' ? '#f59e0b' : '#3b82f6';
+
+    const actionBtn = canPort && m.status !== 'recebido' ? `
+      <button
+        onclick="${m._type === 'legacy'
+          ? `openReceiveMaterialModal('${m._id}', () => renderMateriaisTab('${projectId}'))`
+          : `_openReceberModal('${m._id}','${projectId}')`}"
+        style="
+          display:flex;align-items:center;gap:8px;
+          background:#10b981;color:#fff;border:none;border-radius:10px;
+          padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;
+          width:100%;justify-content:center;margin-top:14px;
+          box-shadow:0 2px 8px rgba(16,185,129,.25);transition:background .15s;
+        "
+        onmouseover="this.style.background='#059669'"
+        onmouseout="this.style.background='#10b981'"
+      >
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        DAR ENTRADA
+      </button>` : (m.status === 'recebido' ? `
+      <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:14px;color:#10b981;font-weight:700;font-size:13px;">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Recebimento concluído
+      </div>` : '');
+
     return `
-    <tr style="${statusO==='recebido'?'opacity:.65;':''}">
-      <td class="td-main">
-        ${o.item || '—'}
-        <span style="display:inline-block;margin-left:6px;font-size:10px;color:var(--text-faint);background:var(--surface-2);border:1px solid var(--border);border-radius:4px;padding:1px 5px;">legado</span>
-      </td>
-      <td style="text-align:right;">${Number(o.quantity||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
-      <td style="text-align:right;font-weight:600;color:${statusO==='recebido'?'#10b981':'var(--text-muted)'};">${Number(o.delivered||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
-      <td style="text-align:center;">${o.unit||'un'}</td>
-      <td style="text-align:center;font-size:11px;color:var(--text-faint);">—</td>
-      <td style="font-size:12px;color:var(--text-muted);">${o.supplier||'—'}</td>
-      <td>${_matBadge(statusO)}</td>
-      ${canPort ? `
-      <td>
-        ${saldo > 0 ? `
-        <button class="btn btn-sm btn-ghost" style="color:#10b981;" onclick="openReceiveMaterialModal('${o.id}', () => renderMateriaisTab('${projectId}'))">
-          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          Receber
-        </button>` : `<span style="font-size:11px;color:#10b981;">✓ Ok</span>`}
-      </td>` : ''}
-    </tr>`;
-  }).join('');
+      <div style="
+        background:${cfg.bg};
+        border:1.5px solid ${cfg.border};
+        border-radius:14px;
+        padding:16px 18px;
+        display:flex;flex-direction:column;gap:6px;
+        opacity:${m.status === 'recebido' ? '0.7' : '1'};
+      ">
+        <!-- cabeçalho do card -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+          <div>
+            <div style="font-size:16px;font-weight:700;color:var(--text);line-height:1.3;">${m.description}</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+              ${m.supplierName !== '—' ? `<span>Fornecedor: <strong>${m.supplierName}</strong></span>` : ''}
+              ${m.solNumber ? `<span style="margin-left:8px;">Sol. <strong>#${m.solNumber}</strong></span>` : ''}
+              ${m._type === 'legacy' ? `<span style="margin-left:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:10px;">legado</span>` : ''}
+            </div>
+          </div>
+          <span style="
+            display:inline-flex;align-items:center;gap:5px;
+            background:white;border:1.5px solid ${cfg.border};
+            border-radius:20px;padding:3px 10px;
+            font-size:11px;font-weight:600;color:${cfg.dot};white-space:nowrap;
+          ">
+            <span style="width:7px;height:7px;border-radius:50%;background:${cfg.dot};display:inline-block;"></span>
+            ${cfg.label}
+          </span>
+        </div>
+
+        <!-- progresso de quantidade -->
+        <div style="margin-top:6px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+            <span style="font-size:12px;color:var(--text-muted);">Quantidade</span>
+            <span style="font-size:13px;font-weight:700;color:var(--text);">
+              <span style="color:${barColor};">${Number(m.receivedQty||0).toLocaleString('pt-BR',{maximumFractionDigits:2})}</span>
+              <span style="color:var(--text-muted);font-weight:400;"> de </span>
+              ${Number(m.quantity||0).toLocaleString('pt-BR',{maximumFractionDigits:2})} ${m.unit}
+            </span>
+          </div>
+          <!-- barra de progresso -->
+          <div style="height:8px;background:rgba(0,0,0,.08);border-radius:99px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:${barColor};border-radius:99px;transition:width .4s;"></div>
+          </div>
+          ${m.status !== 'recebido' ? `
+          <div style="font-size:11px;color:${cfg.dot};font-weight:600;margin-top:4px;">
+            Faltam: ${Number(falt).toLocaleString('pt-BR',{maximumFractionDigits:2})} ${m.unit} (${100 - pct}%)
+          </div>` : ''}
+        </div>
+
+        ${actionBtn}
+      </div>`;
+  }
+
+  // ── grupo de cards por status ──────────────────────────────────────────────
+  function _group(title, icon, items, color) {
+    if (!items.length) return '';
+    return `
+      <div style="margin-bottom:24px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+          <span style="width:10px;height:10px;border-radius:50%;background:${color};display:inline-block;"></span>
+          <span style="font-size:13px;font-weight:700;color:var(--text);">${icon} ${title}</span>
+          <span style="background:${color};color:#fff;border-radius:20px;font-size:11px;font-weight:700;padding:1px 8px;">${items.length}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;">
+          ${items.map(_itemCard).join('')}
+        </div>
+      </div>`;
+  }
+
+  const hasAny = allNorm.length > 0;
 
   container.innerHTML = `
-    <div class="card" id="almox-card">
-      <div class="card-header">
-        <div class="card-title">Almoxarifado</div>
-        <div style="display:flex;gap:12px;font-size:12px;color:var(--text-muted);align-items:center;">
-          <span style="display:flex;align-items:center;gap:5px;"><span style="width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block;"></span>Aguardando: <strong style="color:var(--text);">${totSol}</strong></span>
-          ${totPar ? `<span style="display:flex;align-items:center;gap:5px;"><span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>Parcial: <strong style="color:var(--text);">${totPar}</strong></span>` : ''}
-          <span style="display:flex;align-items:center;gap:5px;"><span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span>Recebido: <strong style="color:var(--text);">${totRec}</strong></span>
-        </div>
+    <div style="padding:0 2px;">
+      <!-- KPIs visuais -->
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px;">
+        ${_almoxKpi('Aguardando', pending.length, '#3b82f6', '#eff6ff', '#bfdbfe',
+          '<svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>')}
+        ${_almoxKpi('Parcial', partial.length, '#f59e0b', '#fffbeb', '#fde68a',
+          '<svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>')}
+        ${_almoxKpi('Recebidos', received.length, '#10b981', '#f0fdf4', '#bbf7d0',
+          '<svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>')}
       </div>
-      ${hasAny ? `
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>ITEM / INSUMO</th>
-              <th style="width:85px;">QTD SOL.</th>
-              <th style="width:85px;">QTD REC.</th>
-              <th style="width:55px;">UNID.</th>
-              <th style="width:85px;">ORIGEM</th>
-              <th>FORNECEDOR</th>
-              <th style="width:100px;">STATUS</th>
-              ${canPort ? `<th style="width:90px;"></th>` : ''}
-            </tr>
-          </thead>
-          <tbody>
-            ${newRows}
-            ${legacyRows}
-          </tbody>
-        </table>
-      </div>` : `
-      <div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px;">
-        <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 10px;display:block;opacity:.3;"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-        Nenhum item no almoxarifado ainda.<br>
-        <span style="font-size:12px;">Crie uma solicitação e clique em "↓ Almox" para enviar os itens.</span>
-      </div>`}
+
+      ${!hasAny ? `
+        <div style="text-align:center;padding:48px 24px;color:var(--text-muted);">
+          <svg width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.2" style="margin:0 auto 12px;display:block;opacity:.3;"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+          <div style="font-size:15px;font-weight:600;margin-bottom:6px;">Nenhum item no almoxarifado</div>
+          <div style="font-size:13px;">Crie uma solicitação e clique em "↓ Almox" para enviar os itens.</div>
+        </div>` : `
+        ${_group('Aguardando chegada', '⏳', pending, '#3b82f6')}
+        ${_group('Entrega parcial — dar entrada no restante', '📦', partial, '#f59e0b')}
+        ${_group('Totalmente recebidos', '✅', received, '#10b981')}
+      `}
     </div>
   `;
+}
+
+function _almoxKpi(label, count, color, bg, border, icon) {
+  return `
+    <div style="
+      flex:1;min-width:130px;
+      background:${bg};border:1.5px solid ${border};border-radius:12px;
+      padding:14px 16px;display:flex;align-items:center;gap:12px;
+    ">
+      <span style="color:${color};">${icon}</span>
+      <div>
+        <div style="font-size:24px;font-weight:800;color:${color};line-height:1;">${count}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${label}</div>
+      </div>
+    </div>`;
 }
 
 // ─── RECEBER ITEM (PORTARIA) ────────────────────────────────────────────────
 function _openReceberModal(itemId, projectId) {
   const item = Store.getById('project_materials', itemId);
   if (!item) return;
-  const pending = item.quantity - (item.receivedQty || 0);
+  const alreadyRec = item.receivedQty || 0;
+  const pending    = item.quantity - alreadyRec;
+  const pct        = item.quantity > 0 ? Math.min(100, Math.round((alreadyRec / item.quantity) * 100)) : 0;
+  const unit       = item.unit || 'un';
 
   const { close } = Modal.create({
-    title: 'Registrar Recebimento',
+    title: '',
     size: 'modal-sm',
     body: `
-      <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
-        Item: <strong style="color:var(--text);">${item.description}</strong><br>
-        Solicitado: <strong>${Number(item.quantity).toLocaleString('pt-BR',{minimumFractionDigits:2})} ${item.unit||'un'}</strong>
-        ${item.receivedQty > 0 ? ` · Já recebido: <strong>${Number(item.receivedQty).toLocaleString('pt-BR',{minimumFractionDigits:2})}</strong>` : ''}
-      </p>
-      <div class="form-group" style="margin-bottom:12px;">
-        <label class="form-label">Quantidade recebida agora *</label>
-        <input class="form-control" id="rec-qty" type="number" min="0.01" step="0.01" value="${pending}" placeholder="0">
+      <!-- cabeçalho visual do item -->
+      <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:16px;margin-bottom:20px;">
+        <div style="font-size:18px;font-weight:800;color:var(--text);margin-bottom:4px;">${item.description}</div>
+        ${item.supplierName ? `<div style="font-size:12px;color:var(--text-muted);">Fornecedor: <strong>${item.supplierName}</strong></div>` : ''}
+
+        <!-- barra de progresso atual -->
+        <div style="margin-top:12px;">
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-bottom:4px;">
+            <span>Progresso atual</span>
+            <span style="font-weight:700;">${pct}% recebido</span>
+          </div>
+          <div style="height:10px;background:#d1fae5;border-radius:99px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:#10b981;border-radius:99px;"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px;">
+            <span style="color:#10b981;font-weight:600;">✓ Já recebido: ${Number(alreadyRec).toLocaleString('pt-BR',{maximumFractionDigits:2})} ${unit}</span>
+            <span style="color:#f59e0b;font-weight:600;">Faltam: ${Number(pending).toLocaleString('pt-BR',{maximumFractionDigits:2})} ${unit}</span>
+          </div>
+        </div>
       </div>
-      <div class="form-group" style="margin-bottom:12px;">
-        <label class="form-label">Nº da Nota Fiscal</label>
-        <input class="form-control" id="rec-nf" placeholder="000000">
+
+      <!-- campo principal: quantidade que chegou agora -->
+      <div style="margin-bottom:16px;">
+        <label style="display:block;font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px;">
+          📦 Quanto chegou AGORA?
+          <span style="font-size:12px;font-weight:400;color:var(--text-muted);margin-left:4px;">(em ${unit})</span>
+        </label>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <button id="rec-minus" type="button" style="width:44px;height:44px;border-radius:50%;border:2px solid var(--border);background:var(--surface-2);font-size:20px;cursor:pointer;flex-shrink:0;color:var(--text);">−</button>
+          <input
+            class="form-control"
+            id="rec-qty"
+            type="number"
+            min="0.01"
+            step="0.01"
+            value="${pending}"
+            style="text-align:center;font-size:22px;font-weight:800;height:48px;border-radius:10px;"
+          >
+          <button id="rec-plus" type="button" style="width:44px;height:44px;border-radius:50%;border:2px solid var(--border);background:var(--surface-2);font-size:20px;cursor:pointer;flex-shrink:0;color:var(--text);">+</button>
+        </div>
+        <div id="rec-qty-hint" style="font-size:12px;color:var(--text-muted);margin-top:6px;text-align:center;">
+          Pedido total: <strong>${Number(item.quantity).toLocaleString('pt-BR',{maximumFractionDigits:2})} ${unit}</strong>
+        </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Observação</label>
-        <textarea class="form-control" id="rec-notes" rows="2" placeholder="Condição da entrega, divergência..."></textarea>
+
+      <!-- NF e observação -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+        <div>
+          <label style="display:block;font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;">
+            🧾 Nota Fiscal
+            <span style="font-weight:400;color:var(--text-muted);">(opcional)</span>
+          </label>
+          <input class="form-control" id="rec-nf" placeholder="Ex: 12345" style="height:40px;">
+        </div>
+        <div>
+          <label style="display:block;font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;">Data de entrega</label>
+          <input class="form-control" id="rec-date" type="date" value="${new Date().toISOString().slice(0,10)}" style="height:40px;">
+        </div>
+      </div>
+      <div style="margin-bottom:4px;">
+        <label style="display:block;font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;">
+          📝 Observação
+          <span style="font-weight:400;color:var(--text-muted);">(opcional)</span>
+        </label>
+        <textarea class="form-control" id="rec-notes" rows="2" placeholder="Ex: caixas amassadas, quantidade divergente..."></textarea>
       </div>
     `,
     footer: `
-      <button class="btn btn-outline" id="rec-cancel">Cancelar</button>
-      <button class="btn btn-primary" id="rec-confirm">Confirmar Recebimento</button>
+      <button class="btn btn-outline" id="rec-cancel" style="min-width:100px;">Cancelar</button>
+      <button class="btn btn-primary" id="rec-confirm" style="min-width:180px;font-size:15px;font-weight:700;background:#10b981;border-color:#10b981;">
+        ✓ Confirmar Entrada
+      </button>
     `
   });
 
   setTimeout(() => {
+    // botões +/- de quantidade
+    const qtyEl = document.getElementById('rec-qty');
+    document.getElementById('rec-minus')?.addEventListener('click', () => {
+      const v = parseFloat(qtyEl.value) || 0;
+      if (v > 1) qtyEl.value = (v - 1).toFixed(2);
+    });
+    document.getElementById('rec-plus')?.addEventListener('click', () => {
+      const v = parseFloat(qtyEl.value) || 0;
+      qtyEl.value = (v + 1).toFixed(2);
+    });
+    // hint dinâmico
+    qtyEl?.addEventListener('input', () => {
+      const v    = parseFloat(qtyEl.value) || 0;
+      const hint = document.getElementById('rec-qty-hint');
+      if (!hint) return;
+      const total = alreadyRec + v;
+      if (total > item.quantity) {
+        hint.innerHTML = `<span style="color:#ef4444;font-weight:600;">⚠ Atenção: ultrapassa o pedido (${Number(item.quantity).toLocaleString('pt-BR',{maximumFractionDigits:2})} ${unit})</span>`;
+      } else if (total >= item.quantity) {
+        hint.innerHTML = `<span style="color:#10b981;font-weight:600;">✓ Com essa entrada, o item fica totalmente recebido!</span>`;
+      } else {
+        const faltarao = item.quantity - total;
+        hint.innerHTML = `Ainda faltarão <strong>${Number(faltarao).toLocaleString('pt-BR',{maximumFractionDigits:2})} ${unit}</strong> depois desta entrada.`;
+      }
+    });
+
     document.getElementById('rec-cancel')?.addEventListener('click', close);
     document.getElementById('rec-confirm')?.addEventListener('click', () => {
-      const qty = parseFloat(document.getElementById('rec-qty').value) || 0;
-      if (qty <= 0) { Toast.error('Quantidade inválida', 'Informe a quantidade recebida.'); return; }
-      const nf    = document.getElementById('rec-nf').value.trim();
-      const notes = document.getElementById('rec-notes').value.trim();
-      const newReceived = (item.receivedQty || 0) + qty;
+      const qty = parseFloat(qtyEl.value) || 0;
+      if (qty <= 0) { Toast.error('Quantidade inválida', 'Informe a quantidade que chegou.'); return; }
+      const nf         = document.getElementById('rec-nf').value.trim();
+      const dateVal    = document.getElementById('rec-date').value;
+      const notes      = document.getElementById('rec-notes').value.trim();
+      const newReceived = alreadyRec + qty;
       const newStatus   = newReceived >= item.quantity ? 'recebido' : 'parcial';
       Store.update('project_materials', itemId, {
-        receivedQty: newReceived,
-        status:      newStatus,
-        lastNf:      nf || item.lastNf || '',
-        lastNotes:   notes,
-        lastReceivedAt: new Date().toISOString().slice(0,10),
+        receivedQty:    newReceived,
+        status:         newStatus,
+        lastNf:         nf || item.lastNf || '',
+        lastNotes:      notes,
+        lastReceivedAt: dateVal || new Date().toISOString().slice(0,10),
       });
       close();
-      Toast.success('Recebimento registrado!', newStatus === 'recebido' ? 'Item totalmente recebido.' : `Recebido parcialmente. Faltam ${(item.quantity - newReceived).toLocaleString('pt-BR',{minimumFractionDigits:2})} ${item.unit||'un'}.`);
+      if (newStatus === 'recebido') {
+        Toast.success('Recebimento concluído! ✅', `${item.description} foi totalmente recebido.`);
+      } else {
+        const falt = item.quantity - newReceived;
+        Toast.success('Entrada registrada! 📦', `Faltam ${Number(falt).toLocaleString('pt-BR',{maximumFractionDigits:2})} ${unit} para completar o pedido.`);
+      }
       _renderAlmoxSection(projectId);
     });
   }, 50);
