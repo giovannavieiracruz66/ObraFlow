@@ -14,9 +14,22 @@ const PAG_STATUS = {
   atrasado: { label: 'Atrasado',  badge: 'badge-red'    },
 };
 
+const NF_STATUS = {
+  sem_nf:       { label: 'Sem NF',          badge: 'badge-gray',   color: '#94a3b8' },
+  so_compras:   { label: 'Só no Compras',   badge: 'badge-orange', color: '#f59e0b' },
+  aguardando_nf:{ label: 'Aguardando NF',   badge: 'badge-blue',   color: '#3b82f6' },
+  nf_emitida:   { label: 'NF Emitida',      badge: 'badge-teal',   color: '#10b981' },
+};
+
 function _pagStatusBadge(s) {
   const st = PAG_STATUS[s] || { label: s, badge: 'badge-gray' };
   return `<span class="badge ${st.badge}">${st.label}</span>`;
+}
+
+function _nfBadge(s) {
+  if (!s || s === 'sem_nf') return '';
+  const st = NF_STATUS[s] || { label: s, badge: 'badge-gray' };
+  return `<span class="badge ${st.badge}" style="font-size:10px;">${st.label}</span>`;
 }
 
 function _syncOverdue() {
@@ -199,7 +212,8 @@ function _pagCard(p) {
         <span style="font-size:12px;font-weight:700;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${recurrIcon} ${p.name}${parcelLabel}</span>
         ${_pagStatusBadge(p.status)}
       </div>
-      <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">${p.product || '—'}</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">${p.product || '—'}</div>
+      ${p.nfStatus && p.nfStatus !== 'sem_nf' ? `<div style="margin-bottom:6px;">${_nfBadge(p.nfStatus)}</div>` : '<div style="margin-bottom:6px;"></div>'}
       <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
         <span style="font-size:13px;font-weight:800;color:var(--primary-800);">${fmt.currency(p.totalValue || 0)}</span>
         <div style="display:flex;gap:4px;align-items:center;">
@@ -245,6 +259,7 @@ function renderPagList() {
               <th style="width:110px;">VALOR</th>
               <th style="width:105px;">VENCIMENTO</th>
               <th style="width:80px;">PARCELA</th>
+              <th style="width:115px;">NOTA FISCAL</th>
               <th style="width:95px;">STATUS</th>
               <th style="width:100px;"></th>
             </tr>
@@ -289,6 +304,7 @@ function renderPagListContent() {
           <td>${dateLabel}</td>
           <td style="text-align:center;">${parcelLabel}</td>
           <td>${_pagStatusBadge(p.status)}</td>
+          <td>${_nfBadge(p.nfStatus) || '<span style="font-size:11px;color:var(--text-faint);">—</span>'}</td>
           <td>
             <div style="display:flex;gap:3px;">
               <button class="btn btn-sm btn-ghost" title="Editar" onclick="openPaymentModal(null,'${p.id}')">
@@ -403,6 +419,15 @@ function openPaymentModal(ev, editId = null) {
             <option value="pago"     ${v('status')==='pago'?'selected':''}>Pago</option>
           </select>
         </div>
+        <div class="form-group">
+          <label class="form-label">Status da Nota Fiscal</label>
+          <select class="form-control" id="np-nf-status">
+            <option value="sem_nf"        ${v('nfStatus','sem_nf')==='sem_nf'?'selected':''}>Sem NF</option>
+            <option value="so_compras"    ${v('nfStatus')==='so_compras'?'selected':''}>Só no Compras (sem NF ainda)</option>
+            <option value="aguardando_nf" ${v('nfStatus')==='aguardando_nf'?'selected':''}>Aguardando emissão da NF</option>
+            <option value="nf_emitida"    ${v('nfStatus')==='nf_emitida'?'selected':''}>NF já emitida</option>
+          </select>
+        </div>
         <div class="form-group form-col-span-2">
           <label class="form-label">Observações</label>
           <textarea class="form-control" id="np-notes" rows="2" placeholder="Nº de nota, contrato, referência...">${v('notes')}</textarea>
@@ -477,19 +502,20 @@ function openPaymentModal(ev, editId = null) {
 
     document.getElementById('modal-cancel')?.addEventListener('click', close);
     document.getElementById('modal-save')?.addEventListener('click', () => {
-      const name    = document.getElementById('np-name').value.trim();
-      const value   = parseFloat(document.getElementById('np-value').value) || 0;
-      const cnpj    = document.getElementById('np-cnpj').value.trim();
-      const product = document.getElementById('np-product').value.trim();
-      const notes   = document.getElementById('np-notes').value.trim();
-      const status  = document.getElementById('np-status').value;
+      const name     = document.getElementById('np-name').value.trim();
+      const value    = parseFloat(document.getElementById('np-value').value) || 0;
+      const cnpj     = document.getElementById('np-cnpj').value.trim();
+      const product  = document.getElementById('np-product').value.trim();
+      const notes    = document.getElementById('np-notes').value.trim();
+      const status   = document.getElementById('np-status').value;
+      const nfStatus = document.getElementById('np-nf-status').value;
 
       if (!name)      { Toast.error('Campo obrigatório', 'Informe o nome.'); return; }
       if (value <= 0) { Toast.error('Campo obrigatório', 'Informe o valor.'); return; }
 
       if (isEdit) {
         const dueDate = document.getElementById('np-date-edit')?.value || existing.dueDate;
-        Store.update('payments', editId, { name, cnpj, product, notes, status, totalValue: value, dueDate });
+        Store.update('payments', editId, { name, cnpj, product, notes, status, nfStatus, totalValue: value, dueDate });
         close();
         Toast.success('Pagamento atualizado!');
         if (pagView === 'calendar') renderPagCalendar(); else renderPagListContent();
@@ -511,7 +537,7 @@ function openPaymentModal(ev, editId = null) {
           if (d.getDate() !== recDay) d.setDate(0);
           const dueDate = d.toISOString().slice(0,10);
           Store.add('payments', {
-            name, cnpj, product, notes,
+            name, cnpj, product, notes, nfStatus,
             totalValue: value,
             installments: recMonths,
             installmentNumber: i + 1,
@@ -533,7 +559,7 @@ function openPaymentModal(ev, editId = null) {
           d.setMonth(d.getMonth() + i);
           const dueDate = d.toISOString().slice(0,10);
           Store.add('payments', {
-            name, cnpj, product, notes,
+            name, cnpj, product, notes, nfStatus,
             totalValue: installValue,
             installments: n,
             installmentNumber: i + 1,
