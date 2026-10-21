@@ -213,7 +213,11 @@ function _pagCard(p) {
         ${_pagStatusBadge(p.status)}
       </div>
       <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">${p.product || '—'}</div>
-      ${p.nfStatus && p.nfStatus !== 'sem_nf' ? `<div style="margin-bottom:6px;">${_nfBadge(p.nfStatus)}</div>` : '<div style="margin-bottom:6px;"></div>'}
+      ${p.nfStatus && p.nfStatus !== 'sem_nf' ? `
+        <div style="margin-bottom:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          ${_nfBadge(p.nfStatus)}
+          ${p.nfPara ? `<span style="font-size:11px;color:var(--text-muted);">→ ${p.nfPara}</span>` : ''}
+        </div>` : '<div style="margin-bottom:6px;"></div>'}
       <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
         <span style="font-size:13px;font-weight:800;color:var(--primary-800);">${fmt.currency(p.totalValue || 0)}</span>
         <div style="display:flex;gap:4px;align-items:center;">
@@ -421,12 +425,16 @@ function openPaymentModal(ev, editId = null) {
         </div>
         <div class="form-group">
           <label class="form-label">Status da Nota Fiscal</label>
-          <select class="form-control" id="np-nf-status">
+          <select class="form-control" id="np-nf-status" onchange="_toggleNfPara(this.value)">
             <option value="sem_nf"        ${v('nfStatus','sem_nf')==='sem_nf'?'selected':''}>Sem NF</option>
             <option value="so_compras"    ${v('nfStatus')==='so_compras'?'selected':''}>Só no Compras (sem NF ainda)</option>
             <option value="aguardando_nf" ${v('nfStatus')==='aguardando_nf'?'selected':''}>Aguardando emissão da NF</option>
             <option value="nf_emitida"    ${v('nfStatus')==='nf_emitida'?'selected':''}>NF já emitida</option>
           </select>
+        </div>
+        <div class="form-group" id="np-nf-para-group" style="display:${['aguardando_nf','nf_emitida'].includes(v('nfStatus')) ? 'block' : 'none'};">
+          <label class="form-label">NF emitida para (empresa)</label>
+          <input class="form-control" id="np-nf-para" value="${v('nfPara')}" placeholder="Ex: Insighta Construções Ltda">
         </div>
         <div class="form-group form-col-span-2">
           <label class="form-label">Observações</label>
@@ -509,13 +517,14 @@ function openPaymentModal(ev, editId = null) {
       const notes    = document.getElementById('np-notes').value.trim();
       const status   = document.getElementById('np-status').value;
       const nfStatus = document.getElementById('np-nf-status').value;
+      const nfPara   = document.getElementById('np-nf-para')?.value.trim() || '';
 
       if (!name)      { Toast.error('Campo obrigatório', 'Informe o nome.'); return; }
       if (value <= 0) { Toast.error('Campo obrigatório', 'Informe o valor.'); return; }
 
       if (isEdit) {
         const dueDate = document.getElementById('np-date-edit')?.value || existing.dueDate;
-        Store.update('payments', editId, { name, cnpj, product, notes, status, nfStatus, totalValue: value, dueDate });
+        Store.update('payments', editId, { name, cnpj, product, notes, status, nfStatus, nfPara, totalValue: value, dueDate });
         close();
         Toast.success('Pagamento atualizado!');
         if (pagView === 'calendar') renderPagCalendar(); else renderPagListContent();
@@ -537,7 +546,7 @@ function openPaymentModal(ev, editId = null) {
           if (d.getDate() !== recDay) d.setDate(0);
           const dueDate = d.toISOString().slice(0,10);
           Store.add('payments', {
-            name, cnpj, product, notes, nfStatus,
+            name, cnpj, product, notes, nfStatus, nfPara,
             totalValue: value,
             installments: recMonths,
             installmentNumber: i + 1,
@@ -559,7 +568,7 @@ function openPaymentModal(ev, editId = null) {
           d.setMonth(d.getMonth() + i);
           const dueDate = d.toISOString().slice(0,10);
           Store.add('payments', {
-            name, cnpj, product, notes, nfStatus,
+            name, cnpj, product, notes, nfStatus, nfPara,
             totalValue: installValue,
             installments: n,
             installmentNumber: i + 1,
@@ -579,6 +588,11 @@ function openPaymentModal(ev, editId = null) {
 }
 
 let _pagCurrentTab = 'avulso';
+function _toggleNfPara(val) {
+  const el = document.getElementById('np-nf-para-group');
+  if (el) el.style.display = ['aguardando_nf','nf_emitida'].includes(val) ? 'block' : 'none';
+}
+
 function _pagSetTab(tab) {
   _pagCurrentTab = tab;
   const tabs = ['avulso','recorr'];
