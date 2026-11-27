@@ -178,11 +178,14 @@ function _renderAlmoxSection(projectId) {
   const partial  = allNorm.filter(m => m.status === 'parcial');
   const received = allNorm.filter(m => m.status === 'recebido');
   const canPort  = ['admin','gestor','portaria','suprimentos'].includes(Store.getRole());
+  const canDelete = canWrite() && Store.getRole() !== 'portaria';
 
   // ── card visual de cada item ───────────────────────────────────────────────
   function _itemCard(m) {
-    const pct  = m.quantity > 0 ? Math.min(100, Math.round((m.receivedQty / m.quantity) * 100)) : 0;
-    const falt = m.quantity - (m.receivedQty || 0);
+    const rec  = Number(m.receivedQty) || 0;
+    const qtd  = Number(m.quantity) || 0;
+    const pct  = qtd > 0 ? Math.min(100, Math.round((rec / qtd) * 100)) : 0;
+    const falt = qtd - rec;
 
     const statusCfg = {
       solicitado: { bg:'#eff6ff', border:'#bfdbfe', dot:'#3b82f6', label:'Aguardando chegada' },
@@ -235,15 +238,21 @@ function _renderAlmoxSection(projectId) {
               ${m._type === 'legacy' ? `<span style="margin-left:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:10px;">legado</span>` : ''}
             </div>
           </div>
-          <span style="
-            display:inline-flex;align-items:center;gap:5px;
-            background:white;border:1.5px solid ${cfg.border};
-            border-radius:20px;padding:3px 10px;
-            font-size:11px;font-weight:600;color:${cfg.dot};white-space:nowrap;
-          ">
-            <span style="width:7px;height:7px;border-radius:50%;background:${cfg.dot};display:inline-block;"></span>
-            ${cfg.label}
-          </span>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="
+              display:inline-flex;align-items:center;gap:5px;
+              background:white;border:1.5px solid ${cfg.border};
+              border-radius:20px;padding:3px 10px;
+              font-size:11px;font-weight:600;color:${cfg.dot};white-space:nowrap;
+            ">
+              <span style="width:7px;height:7px;border-radius:50%;background:${cfg.dot};display:inline-block;"></span>
+              ${cfg.label}
+            </span>
+            ${canDelete ? `
+            <button class="btn btn-sm btn-ghost" style="color:var(--danger);padding:4px 6px;" title="Excluir do almoxarifado" onclick="deleteAlmoxItem('${m._id}','${m._type}','${projectId}')">
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+            </button>` : ''}
+          </div>
         </div>
 
         <!-- progresso de quantidade -->
@@ -603,7 +612,15 @@ function openSolicitacaoModal(projectId, editId = null) {
       if (isEdit) {
         Store.update('purchase_requests', editId, data);
         close();
-        Toast.success('Solicitação atualizada!');
+        const sync = _syncAlmoxFromSol(editId, projectId);
+        if (!sync.linked) {
+          Toast.success('Solicitação atualizada!');
+        } else if (sync.locked) {
+          Toast.warning('Solicitação e almoxarifado atualizados',
+            `${sync.locked} item(ns) com entrada já registrada mantiveram a quantidade. Os demais foram atualizados.`);
+        } else {
+          Toast.success('Solicitação atualizada!', 'Os itens aguardando recebimento no almoxarifado também foram atualizados.');
+        }
         renderMateriaisTab(projectId);
       } else {
         data.createdAt = new Date().toISOString();
@@ -706,10 +723,87 @@ function _readSolItems() {
 }
 
 function deleteSolicitacao(id, projectId) {
+  const linked   = Store.getList('project_materials').filter(m => m.purchaseRequestId === id);
+  const waiting  = linked.filter(m => !_matHasEntry(m));
+  const withEntry = linked.length - waiting.length;
+  let message = 'Excluir esta solicitação de compra?';
+  if (waiting.length) message += `\n\n${waiting.length} item(ns) aguardando recebimento no almoxarifado também serão excluídos.`;
+  if (withEntry) message += `\n\n${withEntry} item(ns) que já tiveram entrada registrada continuam no almoxarifado, para não perder o histórico.`;
+
   confirmDialog({
-    title: 'Excluir Solicitação', message: 'Excluir esta solicitação de compra? Os itens no almoxarifado vinculados a ela não serão removidos.',
+    title: 'Excluir Solicitação', message,
     confirmText: 'Excluir', type: 'danger',
-    onConfirm: () => { Store.remove('purchase_requests', id); Toast.success('Excluída!'); renderMateriaisTab(projectId); }
+    onConfirm: () => {
+      waiting.forEach(m => Store.remove('project_materials', m.id));
+      Store.remove('purchase_requests', id);
+      Toast.success('Excluída!');
+      renderMateriaisTab(projectId);
+    }
+  });
+}
+
+// Item do almoxarifado que já teve alguma entrada registrada
+function _matHasEntry(m) {
+  return (Number(m.receivedQty) || 0) > 0 || m.status === 'parcial' || m.status === 'recebido';
+}
+
+// Depois de editar uma solicitação já enviada ao almoxarifado, refaz os itens
+// que ainda estão aguardando recebimento com os dados novos (fornecedor,
+// descrição, quantidade, unidade, preço). Itens que já tiveram entrada não
+// mudam de quantidade, só passam a mostrar o fornecedor novo.
+function _syncAlmoxFromSol(solId, projectId) {
+  const sol = Store.getById('purchase_requests', solId);
+  const linked = Store.getList('project_materials').filter(m => m.purchaseRequestId === solId);
+  if (!sol || !linked.length) return { linked: 0, locked: 0 };
+
+  const locked  = linked.filter(_matHasEntry);
+  const waiting = linked.filter(m => !_matHasEntry(m));
+  const norm = v => String(v || '').trim().toLowerCase();
+
+  locked.forEach(m => {
+    if (m.supplierName !== sol.supplierName) Store.update('project_materials', m.id, { supplierName: sol.supplierName || '' });
+  });
+  waiting.forEach(m => Store.remove('project_materials', m.id));
+
+  const lockedDesc = new Set(locked.map(m => norm(m.description)));
+  (sol.items || [])
+    .filter(item => !lockedDesc.has(norm(item.description)))
+    .forEach(item => {
+      Store.add('project_materials', {
+        projectId,
+        purchaseRequestId: solId,
+        solNumber:         sol.number,
+        supplierName:      sol.supplierName || '',
+        description:       item.description,
+        quantity:          item.quantity,
+        unit:              item.unit || 'un',
+        unitPrice:         item.unitPrice || 0,
+        status:            'solicitado',
+      });
+    });
+
+  return { linked: linked.length, locked: locked.length };
+}
+
+// Exclui um item do almoxarifado da obra (material novo ou pedido legado)
+function deleteAlmoxItem(id, type, projectId) {
+  const isLegacy = type === 'legacy';
+  const item = Store.getById(isLegacy ? 'orders' : 'project_materials', id);
+  if (!item) return;
+  const desc = isLegacy ? (item.item || 'este item') : (item.description || 'este item');
+  const received = isLegacy ? (Number(item.delivered) || 0) : (Number(item.receivedQty) || 0);
+
+  confirmDialog({
+    title: 'Excluir item do almoxarifado',
+    message: received > 0
+      ? `"${desc}" já tem ${Number(received).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} ${item.unit || 'un'} recebido(s). Excluir mesmo assim? O registro some do almoxarifado desta obra.`
+      : `Excluir "${desc}" do almoxarifado? Ele ainda não teve nenhuma entrada registrada.`,
+    confirmText: 'Excluir', type: 'danger',
+    onConfirm: () => {
+      Store.remove(isLegacy ? 'orders' : 'project_materials', id);
+      Toast.success('Item excluído do almoxarifado');
+      renderMateriaisTab(projectId);
+    }
   });
 }
 
