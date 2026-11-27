@@ -36,8 +36,9 @@ const ROLE_PAGES = {
   gestor_orcamentos: ['dashboard', 'orcamentos', 'clientes', 'obras', 'notificacoes', 'materiais', 'fornecedores'],
   // Financeiro: pagamentos, faturamento e propostas em aberto.
   financeiro: ['dashboard', 'financeiro', 'medicoes', 'relatorios', 'orcamentos', 'notificacoes', 'pagamentos'],
-  // Suprimentos: foco em pagamentos e fornecedores.
-  suprimentos: ['dashboard', 'pagamentos', 'fornecedores', 'notificacoes']
+  // Suprimentos: pagamentos e fornecedores. Sem Dashboard, porque ele mostra
+  // valores de venda (orçamentos e faturamento) que não são desse perfil.
+  suprimentos: ['pagamentos', 'fornecedores', 'notificacoes']
 };
 
 // Páginas restritas ao Administrador mesmo dentro de perfis "acesso completo"

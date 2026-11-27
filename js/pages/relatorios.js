@@ -98,22 +98,120 @@ function renderRelatorios() {
   `;
 }
 
+// ==========================================
+// GERAÇÃO DOS RELATÓRIOS (CSV com os dados reais do sistema)
+// Separador ";" e decimais com vírgula: abre direto no Excel em português.
+// ==========================================
+
+function _csvNum(v) {
+  const n = Number(v) || 0;
+  return n.toFixed(2).replace('.', ',');
+}
+
+function _csvDate(d) {
+  return d ? fmt.date(d) : '';
+}
+
+function _downloadCSV(name, rows) {
+  const csv = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')).join('\r\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${name}_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function generateReport(type) {
-  // In a real app, this would open a filter modal and then generate PDF/CSV.
-  // For the demo, we'll just show a success toast and download a fake CSV.
-  Toast.success('Gerando relatório...', 'O download iniciará em instantes.');
-  setTimeout(() => {
-    let data = '';
-    if (type === 'fluxo') data = 'Data,Obra,Descricao,Valor\n01/01/2025,Obra 1,Pagamento,15000\n';
-    if (type === 'inadimplencia') data = 'Cliente,Obra,Dias Atraso,Valor\nJoão,Obra X,15,5000\n';
-    if (!data) data = 'Relatorio,Data\n' + type + ',' + new Date().toISOString() + '\n';
-    
-    const blob = new Blob(['\uFEFF' + data], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `relatorio_${type}_${new Date().toISOString().slice(0,10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, 1000);
+  const projects = Store.getList('projects');
+  const clients = Store.getList('clients');
+  const financial = Store.getList('financial');
+  const measurements = Store.getList('measurements');
+  const budgets = Store.getList('budgets');
+  const projName = id => projects.find(p => p.id === id)?.name || '';
+  const clientName = id => clients.find(c => c.id === id)?.name || '';
+  const today = new Date().toISOString().slice(0, 10);
+  const label = (group, v) => StatusHelpers[group]?.labels?.[v] || v || '';
+
+  const reports = {
+    fluxo: () => {
+      const rows = [['Data', 'Vencimento', 'Pagamento', 'Obra', 'Cliente', 'Descrição', 'Tipo', 'Situação', 'Forma', 'Valor (R$)']];
+      [...financial]
+        .sort((a, b) => String(a.dueDate || a.date || '').localeCompare(String(b.dueDate || b.date || '')))
+        .forEach(f => rows.push([_csvDate(f.date), _csvDate(f.dueDate), _csvDate(f.paidAt), projName(f.projectId), clientName(f.clientId), f.description, f.type || '', label('financial', f.situation), f.paymentMethod || '', _csvNum(f.value)]));
+      return { name: 'fluxo_de_caixa', rows, count: rows.length - 1 };
+    },
+    inadimplencia: () => {
+      const rows = [['Cliente', 'Obra', 'Descrição', 'Vencimento', 'Dias em atraso', 'Valor (R$)']];
+      financial
+        .filter(f => f.situation === 'atrasado' || (f.situation !== 'recebido' && f.dueDate && String(f.dueDate).slice(0, 10) < today))
+        .map(f => ({ f, dias: f.dueDate ? Math.floor((new Date(today) - new Date(String(f.dueDate).slice(0, 10))) / 86400000) : 0 }))
+        .sort((a, b) => b.dias - a.dias)
+        .forEach(({ f, dias }) => rows.push([clientName(f.clientId), projName(f.projectId), f.description, _csvDate(f.dueDate), Math.max(0, dias), _csvNum(f.value)]));
+      return { name: 'inadimplencia', rows, count: rows.length - 1 };
+    },
+    status: () => {
+      const rows = [['Obra', 'Cliente', 'Responsável', 'Status', 'Início', 'Término previsto', 'Valor contratado (R$)', 'Recebido (R$)', 'A receber (R$)', 'Em atraso (R$)', 'Progresso físico (%)']];
+      projects.forEach(p => {
+        const fin = Store.getProjectFinancials(p.id);
+        rows.push([p.name, clientName(p.clientId), p.responsible || '', label('project', p.status), _csvDate(p.startDate), _csvDate(p.endDate), _csvNum(p.contractValue), _csvNum(fin.received), _csvNum(fin.open), _csvNum(fin.overdue), _csvNum(p.physicalProgress)]);
+      });
+      return { name: 'status_das_obras', rows, count: rows.length - 1 };
+    },
+    medicoes: () => {
+      const rows = [['Obra', 'Medição', 'Período', 'Data', 'Mão de obra (R$)', 'Material (R$)', 'Bruto (R$)', 'Desc. faturamento direto (R$)', 'Caução/Permuta (R$)', 'INSS (R$)', 'ISS (R$)', 'Líquido (R$)', 'Aprovado (R$)', 'Vencimento', 'Pago em', 'Status']];
+      [...measurements]
+        .sort((a, b) => projName(a.projectId).localeCompare(projName(b.projectId)) || (a.number || 0) - (b.number || 0))
+        .forEach(m => {
+          const b = getMeasurementBreakdown(m);
+          rows.push([projName(m.projectId), m.number, m.period || '', _csvDate(m.date), _csvNum(b.labor), _csvNum(b.material), _csvNum(b.gross), _csvNum(b.discount), _csvNum(b.caution), _csvNum(b.inss), _csvNum(b.iss), _csvNum(b.net), _csvNum(m.approvedValue), _csvDate(m.paymentDue), _csvDate(m.paidAt), label('measurement', m.status)]);
+        });
+      return { name: 'mapa_de_medicoes', rows, count: rows.length - 1 };
+    },
+    orcamentos: () => {
+      const decided = budgets.filter(b => ['aprovado', 'recusado'].includes(b.status));
+      const approved = budgets.filter(b => b.status === 'aprovado');
+      const rate = decided.length ? (approved.length / decided.length * 100) : 0;
+      const rows = [
+        ['Resumo', '', '', '', '', '', ''],
+        ['Orçamentos cadastrados', budgets.length, '', '', '', '', ''],
+        ['Aprovados', approved.length, '', '', '', '', ''],
+        ['Taxa de aprovação (aprovados ÷ respondidos)', _csvNum(rate) + '%', '', '', '', '', ''],
+        ['Valor aprovado (R$)', _csvNum(approved.reduce((s, b) => s + (Number(b.finalValue ?? b.value) || 0), 0)), '', '', '', '', ''],
+        ['', '', '', '', '', '', ''],
+        ['Número', 'Projeto', 'Cliente', 'Criado em', 'Validade', 'Valor final (R$)', 'Status']
+      ];
+      [...budgets]
+        .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+        .forEach(b => rows.push([b.number || '', b.projectName || '', clientName(b.clientId), _csvDate(b.createdAt), _csvDate(b.validUntil), _csvNum(b.finalValue ?? b.value), label('budget', b.status)]));
+      return { name: 'conversao_de_orcamentos', rows, count: budgets.length };
+    },
+    clientes: () => {
+      const rows = [['Cliente', 'Empresa', 'Obras', 'Obras em andamento', 'Orçamentos', 'Valor contratado (R$)', 'Recebido (R$)', 'Em aberto (R$)']];
+      clients
+        .map(c => ({ c, st: Store.getClientStats(c.id) }))
+        .sort((a, b) => (b.st.totalContracted || 0) - (a.st.totalContracted || 0))
+        .forEach(({ c, st }) => rows.push([c.name, c.company || 'Pessoa Física', st.projects.length, st.activeProjects, st.budgets.length, _csvNum(st.totalContracted), _csvNum(st.totalReceived), _csvNum(st.pending)]));
+      return { name: 'carteira_de_clientes', rows, count: rows.length - 1 };
+    }
+  };
+
+  const build = reports[type];
+  if (!build) { Toast.error('Relatório não encontrado', type); return; }
+
+  try {
+    const { name, rows, count } = build();
+    if (!count) {
+      Toast.info('Nada para exportar', 'Não há registros para este relatório.');
+      return;
+    }
+    _downloadCSV(name, rows);
+    Toast.success('Relatório gerado', `${count} registro${count !== 1 ? 's' : ''} exportado${count !== 1 ? 's' : ''}.`);
+  } catch (err) {
+    console.error('Erro ao gerar relatório:', err);
+    Toast.error('Erro ao gerar relatório', err.message);
+  }
 }
