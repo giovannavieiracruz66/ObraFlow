@@ -12,7 +12,7 @@ create extension if not exists "pgcrypto";
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   name text not null default 'Usuário',
-  role text not null default 'gestor' check (role in ('admin','gestor','portaria','diretoria','gestor_contratos','gestor_orcamentos','financeiro')),
+  role text not null default 'gestor' check (role in ('admin','gestor','portaria','diretoria','gestor_contratos','gestor_orcamentos','financeiro','suprimentos')),
   avatar text,
   color text default '#0ea5e9',
   created_at timestamptz default now()

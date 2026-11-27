@@ -102,6 +102,11 @@ function setObrasView(view) {
 }
 
 function renderObrasContent() {
+  // Registra o callback de paginação para que changePage('obras', n) funcione
+  if (typeof _pageCallbacks !== 'undefined') {
+    _pageCallbacks['obras'] = (p) => { obrasFilter.page = p; renderObrasContent(); };
+  }
+
   const projects = Store.getList('projects');
   const clients = Store.getList('clients');
   const getClientName = id => clients.find(c => c.id === id)?.name || '—';
@@ -121,7 +126,8 @@ function renderObrasContent() {
   const perPage = currentObrasView === 'grid' ? 9 : 10;
   const total = filtered.length;
   const totalPages = Math.ceil(total / perPage);
-  const page = obrasFilter.page;
+  const page = Math.min(Math.max(1, obrasFilter.page || 1), Math.max(1, totalPages));
+  obrasFilter.page = page;
   const pageItems = filtered.slice((page - 1) * perPage, page * perPage);
 
   const container = document.getElementById('obras-content');

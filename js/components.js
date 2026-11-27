@@ -180,14 +180,15 @@ function canWrite() {
 // Medições antigas (sem esses campos) caem no fallback: bruto = value.
 function getMeasurementBreakdown(m) {
   const hasBreakdown = !!(m.laborValue || m.materialValue || m.directBillingDiscount || m.cautionValue || m.inssValue || m.issValue);
-  const labor = m.laborValue || 0;
-  const material = m.materialValue || 0;
-  const gross = hasBreakdown ? (labor + material) : (m.value || 0); // (A)
-  const discount = m.directBillingDiscount || 0; // (B)
+  const n = v => Number(v) || 0;
+  const labor = n(m.laborValue);
+  const material = n(m.materialValue);
+  const gross = hasBreakdown ? (labor + material) : n(m.value); // (A)
+  const discount = n(m.directBillingDiscount); // (B)
   const subtotal = gross - discount; // (A)-(B)
-  const caution = m.cautionValue || 0; // (C)
-  const inss = m.inssValue || 0;
-  const iss = m.issValue || 0;
+  const caution = n(m.cautionValue); // (C)
+  const inss = n(m.inssValue);
+  const iss = n(m.issValue);
   const totalTaxes = inss + iss; // (D)
   const net = subtotal - caution - totalTaxes; // Total Líquido
   return { labor, material, gross, discount, subtotal, caution, inss, iss, totalTaxes, net, hasBreakdown };
@@ -238,12 +239,18 @@ function paginate({ items, page, perPage = 10, containerId, renderRow, tableId, 
   if (onPageChange) _pageCallbacks[containerId] = onPageChange;
   const total = items.length;
   const totalPages = Math.ceil(total / perPage);
+  page = Math.min(Math.max(1, Number(page) || 1), Math.max(1, totalPages));
   const start = (page - 1) * perPage;
   const pageItems = items.slice(start, start + perPage);
 
   const tbody = document.querySelector(`#${tableId} tbody`);
   if (tbody) {
-    tbody.innerHTML = pageItems.map(renderRow).join('');
+    // Uma linha com dado incompleto não pode travar a página inteira:
+    // registra o erro no console e segue montando as outras linhas.
+    tbody.innerHTML = pageItems.map(item => {
+      try { return renderRow(item); }
+      catch (err) { console.error(`Erro ao montar linha (${containerId}):`, err, item); return ''; }
+    }).join('');
   }
 
   const pag = document.getElementById(`${containerId}-pag`);
@@ -257,7 +264,8 @@ function paginate({ items, page, perPage = 10, containerId, renderRow, tableId, 
 function renderPagination(page, totalPages, total, start, count, id) {
   if (totalPages <= 1) return '';
   let pages = '';
-  for (let i = 1; i <= Math.min(totalPages, 7); i++) {
+  const first = Math.max(1, Math.min(page - 3, totalPages - 6));
+  for (let i = first; i <= Math.min(totalPages, first + 6); i++) {
     pages += `<button class="page-btn ${i === page ? 'active' : ''}" onclick="changePage('${id}', ${i})">${i}</button>`;
   }
   return `
@@ -321,6 +329,120 @@ const paginationState = {};
 const _pageCallbacks = {};
 
 function changePage(id, page) {
+  if (page < 1) return;
   paginationState[id] = page;
   if (_pageCallbacks[id]) _pageCallbacks[id](page);
 }
+
+
+// ==========================================
+// BUSCA GLOBAL (cabeçalho)
+// Procura em obras, clientes, orçamentos e medições, respeitando as
+// telas que o perfil logado pode abrir.
+// ==========================================
+function _gsNorm(v) {
+  return String(v || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+function _gsEscape(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function _gsCanOpen(page) {
+  const role = Store.getRole();
+  const allowed = (typeof ROLE_PAGES !== 'undefined') ? ROLE_PAGES[role] : null;
+  return !allowed || allowed.includes(page);
+}
+
+let _gsItems = [];
+let _gsActive = -1;
+
+function globalSearch(term) {
+  const box = document.getElementById('global-search-results');
+  if (!box) return;
+  const q = _gsNorm(term).trim();
+  if (q.length < 2) { box.style.display = 'none'; _gsItems = []; return; }
+
+  const projects = Store.getList('projects');
+  const clients = Store.getList('clients');
+  const projName = id => projects.find(p => p.id === id)?.name || '';
+  const clientName = id => clients.find(c => c.id === id)?.name || '';
+  const hit = (...fields) => fields.some(f => _gsNorm(f).includes(q));
+  const LIMIT = 5;
+  const groups = [];
+
+  if (_gsCanOpen('obras')) {
+    const items = projects.filter(p => hit(p.name, clientName(p.clientId), p.city, p.responsible)).slice(0, LIMIT)
+      .map(p => ({ title: p.name, sub: [clientName(p.clientId), p.city].filter(Boolean).join(' • '), go: () => { navigate('obras'); openProjectDetail(p.id); } }));
+    if (items.length) groups.push({ label: 'Obras', items });
+  }
+  if (_gsCanOpen('clientes')) {
+    const items = clients.filter(c => hit(c.name, c.company, c.cpfCnpj, c.email)).slice(0, LIMIT)
+      .map(c => ({ title: c.name, sub: c.company || 'Pessoa Física', go: () => { navigate('clientes'); openClientDetail(c.id); } }));
+    if (items.length) groups.push({ label: 'Clientes', items });
+  }
+  if (_gsCanOpen('orcamentos')) {
+    const items = Store.getList('budgets').filter(b => hit(b.number, b.projectName, clientName(b.clientId))).slice(0, LIMIT)
+      .map(b => ({ title: `${b.number || 'Orçamento'} · ${b.projectName || ''}`, sub: `${clientName(b.clientId)} • ${fmt.currency(b.finalValue ?? b.value)}`, go: () => { navigate('orcamentos'); openBudgetDetail(b.id); } }));
+    if (items.length) groups.push({ label: 'Orçamentos', items });
+  }
+  if (_gsCanOpen('medicoes')) {
+    const items = Store.getList('measurements').filter(m => hit(projName(m.projectId), m.period, `med ${m.number}`, `medicao ${m.number}`)).slice(0, LIMIT)
+      .map(m => ({ title: `Medição ${m.number} · ${projName(m.projectId)}`, sub: `${m.period || ''} • ${badgeLabel('measurement', m.status)}`, go: () => { navigate('medicoes'); openEditMeasurementModal(m.id); } }));
+    if (items.length) groups.push({ label: 'Medições', items });
+  }
+
+  _gsItems = groups.flatMap(g => g.items);
+  _gsActive = -1;
+  let idx = 0;
+  box.innerHTML = groups.length
+    ? groups.map(g => `
+        <div class="gs-group">${g.label}</div>
+        ${g.items.map(it => `
+          <div class="gs-item" data-idx="${idx++}" onmousedown="event.preventDefault();globalSearchOpen(${idx - 1})">
+            <div class="gs-title">${_gsEscape(it.title)}</div>
+            <div class="gs-sub">${_gsEscape(it.sub)}</div>
+          </div>`).join('')}
+      `).join('')
+    : `<div class="gs-empty">Nada encontrado para "${_gsEscape(term)}"</div>`;
+  box.style.display = 'block';
+}
+
+function badgeLabel(group, value) {
+  return StatusHelpers[group]?.labels?.[value] || value || '';
+}
+
+function globalSearchOpen(i) {
+  const it = _gsItems[i];
+  if (!it) return;
+  const input = document.getElementById('global-search');
+  const box = document.getElementById('global-search-results');
+  if (input) { input.value = ''; input.blur(); }
+  if (box) box.style.display = 'none';
+  it.go();
+}
+
+function globalSearchKey(e) {
+  const box = document.getElementById('global-search-results');
+  if (!box || box.style.display === 'none') return;
+  const els = box.querySelectorAll('.gs-item');
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (!els.length) return;
+    _gsActive = (_gsActive + (e.key === 'ArrowDown' ? 1 : -1) + els.length) % els.length;
+    els.forEach((el, i) => el.classList.toggle('active', i === _gsActive));
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    globalSearchOpen(_gsActive >= 0 ? _gsActive : 0);
+  } else if (e.key === 'Escape') {
+    box.style.display = 'none';
+    e.target.blur();
+  }
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-wrapper')) {
+    const box = document.getElementById('global-search-results');
+    if (box) box.style.display = 'none';
+  }
+});
